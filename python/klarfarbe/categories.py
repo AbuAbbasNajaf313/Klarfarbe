@@ -59,6 +59,8 @@ def prototype_lch() -> np.ndarray:
 
 
 def _smoothstep(e0: float, e1: float, x: np.ndarray) -> np.ndarray:
+    if e1 <= e0:  # degenerate range, e.g. threshold = 1.0: hard step
+        return (np.asarray(x) >= e0).astype(np.float64)
     t = np.clip((x - e0) / (e1 - e0), 0.0, 1.0)
     return t * t * (3.0 - 2.0 * t)
 

@@ -89,9 +89,14 @@ def apply_lut(image: np.ndarray, lut: np.ndarray) -> np.ndarray:
 def apply_lut_fast(image: np.ndarray, lut: np.ndarray) -> np.ndarray:
     """Nearest-neighbour LUT lookup for live video. Use a LUT of size 64 or more."""
     n = lut.shape[0]
-    idx = (image.astype(np.uint16) * (n - 1) + 127) // 255
-    out = lut[idx[..., 0], idx[..., 1], idx[..., 2]]
-    return np.clip(out * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    idx_map = ((np.arange(256, dtype=np.uint32) * (n - 1) + 127) // 255).astype(np.uint32)
+    r = idx_map[image[..., 0]]
+    g = idx_map[image[..., 1]]
+    b = idx_map[image[..., 2]]
+    flat_idx = (r * (n * n) + g * n + b).ravel()
+    lut_flat = lut.reshape(-1, 3)
+    out = np.clip(lut_flat[flat_idx] * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    return out.reshape(image.shape)
 
 
 def write_cube(lut: np.ndarray, path: str | Path, title: str = "Klarfarbe") -> None:

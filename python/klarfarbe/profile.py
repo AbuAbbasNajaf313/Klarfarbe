@@ -77,16 +77,16 @@ class Profile:
     def from_dict(cls, data: dict) -> "Profile":
         if data.get("format") != FORMAT_NAME:
             raise ValueError("not a klarfarbe profile")
-        targets = {k: Target(**v) for k, v in data.get("targets", {}).items()}
-        return cls(
-            type=data["type"],
-            severity=float(data["severity"]),
-            threshold=float(data.get("threshold", 0.5)),
-            strength=float(data.get("strength", 0.85)),
-            protect_skin=bool(data.get("protect_skin", True)),
-            max_chroma_gain=float(data.get("max_chroma_gain", 2.0)),
-            targets=targets,
-        )
+        from dataclasses import fields
+        target_fields = {f.name for f in fields(Target)}
+        targets = {
+            k: Target(**{tk: tv for tk, tv in v.items() if tk in target_fields})
+            for k, v in data.get("targets", {}).items()
+            if isinstance(v, dict)
+        }
+        allowed_profile = {f.name for f in fields(cls)}
+        profile_kwargs = {k: v for k, v in data.items() if k in allowed_profile and k != "targets"}
+        return cls(targets=targets, **profile_kwargs)
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")

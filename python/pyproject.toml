@@ -16,5 +16,8 @@ dependencies = ["numpy>=1.24"]
 demo = ["opencv-python>=4.8"]
 test = ["pytest>=7"]
 
+[project.scripts]
+klarfarbe = "klarfarbe.cli:main"
+
 [tool.setuptools]
 packages = ["klarfarbe"]

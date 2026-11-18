@@ -43,7 +43,7 @@ _LMS_TO_RGB = np.array(
 
 
 def srgb_to_linear(c: np.ndarray) -> np.ndarray:
-    c = np.asarray(c, dtype=np.float64)
+    c = np.clip(np.asarray(c, dtype=np.float64), 0.0, 1.0)
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 

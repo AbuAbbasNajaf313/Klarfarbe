@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from klarfarbe import Profile, apply_lut, build_lut, snap_srgb, write_cube  # noqa: E402
 from klarfarbe.categories import KEYS, classify  # noqa: E402
-from klarfarbe.oklab import lab_to_lch, oklab_to_srgb, srgb_to_oklab  # noqa: E402
+from klarfarbe.oklab import lab_to_lch, oklab_to_srgb, srgb_to_linear, srgb_to_oklab  # noqa: E402
 from klarfarbe.snap import apply_lut_fast  # noqa: E402
 
 DEUTAN = Profile.default_for("deutan", 0.6)
@@ -97,6 +97,13 @@ def test_invalid_profile_rejected():
         Profile(threshold=1.5)
 
 
+def test_threshold_one_does_not_crash():
+    strict = Profile.default_for("deutan", 0.6)
+    strict.threshold = 1.0
+    out = snap_srgb(rgb(160, 80, 75), strict)
+    assert np.all(np.isfinite(out))
+
+
 def test_lut_matches_direct_snap():
     lut = build_lut(DEUTAN, 33)
     img = (np.random.default_rng(1).random((20, 20, 3)) * 255).astype(np.uint8)
@@ -111,3 +118,28 @@ def test_cube_file(tmp_path):
     lines = path.read_text().splitlines()
     assert "LUT_3D_SIZE 9" in lines
     assert len([l for l in lines if l[0].isdigit()]) == 9 ** 3
+
+
+def test_forward_compatibility():
+    data = {
+        "format": "klarfarbe-profile",
+        "version": "9.9",
+        "type": "deutan",
+        "severity": 0.6,
+        "future_field": "ignore_me",
+        "targets": {
+            "green": {"hue_shift_deg": 15.0, "future_target_attr": 123}
+        }
+    }
+    p = Profile.from_dict(data)
+    assert p.type == "deutan"
+    assert p.severity == 0.6
+    assert p.targets["green"].hue_shift_deg == 15.0
+
+
+def test_negative_or_out_of_bounds_srgb_safe():
+    noisy_srgb = np.array([-0.5, 1.5, 0.2])
+    linear = srgb_to_linear(noisy_srgb)
+    assert np.all(np.isfinite(linear))
+    assert linear[0] == 0.0
+    assert linear[1] == 1.0
