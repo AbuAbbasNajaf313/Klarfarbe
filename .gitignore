@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.cube
+.DS_Store
+node_modules/
