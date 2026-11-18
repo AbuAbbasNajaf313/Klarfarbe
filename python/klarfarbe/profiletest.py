@@ -13,7 +13,8 @@ The caps here are generated in Oklab, not taken from the Munsell D-15, so the
 angles of the protan and deutan axes are calibrated by letting simulated
 observers (Machado et al. 2009) take the test. See `calibrate()`.
 
-This is a screening aid on an uncalibrated screen, not a medical diagnosis.
+It only sets software parameters for Klarfarbe. It is not a medical
+device and not a diagnostic or fitness test (see DISCLAIMER).
 """
 from __future__ import annotations
 
@@ -23,7 +24,12 @@ from .oklab import lch_to_lab, oklab_to_srgb, srgb_to_oklab
 
 N_CAPS = 15
 LIGHTNESS = 0.68
-CHROMA = {"saturated": 0.10, "pale": 0.05}
+# Cap chroma (Oklab). "saturated" has about the colour steps of the
+# Farnsworth D-15, "pale" lies between the D-15 and the desaturated D-15d.
+CHROMA = {"saturated": 0.06, "pale": 0.035}
+
+DISCLAIMER = ("Klarfarbe ist eine Sehhilfe-Software, kein Medizinprodukt und kein "
+              "Diagnose- oder Eignungstest.")
 START_HUE_DEG = 25.0
 
 # Machado, Oliveira & Fernandes (2009), full-strength simulation matrices
@@ -47,6 +53,17 @@ def caps(round_: str) -> np.ndarray:
 
 def _ab(rgb: np.ndarray) -> np.ndarray:
     return srgb_to_oklab(rgb)[..., 1:]
+
+
+def validate_order(order) -> list[int]:
+    """The order must be a permutation of the caps 1..N_CAPS, else ValueError."""
+    try:
+        out = [int(i) for i in order]
+    except (TypeError, ValueError):
+        raise ValueError("order must be a list of cap numbers") from None
+    if any(int(i) != i for i in order) or sorted(out) != list(range(1, N_CAPS + 1)):
+        raise ValueError(f"order must contain each cap 1..{N_CAPS} exactly once")
+    return out
 
 
 def moments(order: list[int], cap_rgb: np.ndarray) -> dict:
@@ -77,8 +94,33 @@ def _perfect_major(round_: str) -> float:
 
 def confusion_index(order: list[int], round_: str) -> tuple[float, float]:
     """(confusion index, axis angle). Index 1.0 = perfect order."""
-    mo = moments(order, caps(round_))
+    mo = moments(validate_order(order), caps(round_))
     return mo["major"] / _perfect_major(round_), mo["angle"]
+
+
+def _scatter(order: list[int], round_: str) -> np.ndarray:
+    """2x2 scatter of neighbour differences, normalised by the perfect order."""
+    pts = _ab(caps(round_)[[0] + list(order)])
+    d = np.diff(pts, axis=0)
+    return (d.T @ d) / (len(d) * _perfect_major(round_) ** 2)
+
+
+def combined_axis(order_saturated: list[int], order_pale: list[int]) -> float:
+    """Confusion axis (degrees, [-90, 90)) from both rounds together.
+
+    Summing the normalised scatter matrices of both rounds halves the
+    angle noise compared with one round, so the type is wrong less often.
+    """
+    m = _scatter(validate_order(order_saturated), "saturated") + _scatter(validate_order(order_pale), "pale")
+    a, b, c = m[0, 0], m[0, 1], m[1, 1]
+    angle = 0.5 * np.degrees(np.arctan2(2.0 * b, a - c))
+    return float((angle + 90.0) % 180.0 - 90.0)
+
+
+def selectivity(order: list[int], round_: str) -> float:
+    """S = major / minor radius (Vingrys & King-Smith). Random orders give S near 1."""
+    mo = moments(validate_order(order), caps(round_))
+    return mo["major"] / max(mo["minor"], 1e-12)
 
 
 # ---------- simulated observers for calibration ----------
@@ -115,54 +157,93 @@ def simulated_order(round_: str, type_: str | None, severity: float,
     return order
 
 
+def _combined(ci_s: float, ci_p: float) -> float:
+    return float(np.sqrt(ci_s * ci_p))
+
+
 def calibrate(trials: int = 40, seed: int = 0) -> dict:
-    """Failure rate and median axis angle per type, severity and round."""
+    """Detection rate and median axis angle per type and severity (simulated observers)."""
     rng = np.random.default_rng(seed)
     out = {}
-    for t in ("protan", "deutan"):
+    for t in ("protan", "deutan", None):
         rows = []
-        for s in np.round(np.arange(0.3, 1.01, 0.1), 2):
-            row = {"severity": float(s)}
-            for r in CHROMA:
-                res = [confusion_index(simulated_order(r, t, float(s), rng), r) for _ in range(trials)]
-                ci = np.array([c for c, _ in res])
-                ang = np.array([a for c, a in res if c > FAIL_INDEX])
-                row[r] = {"fail_rate": float((ci > FAIL_INDEX).mean()),
-                          "angle": float(np.median(ang)) if len(ang) else None}
-            rows.append(row)
-        out[t] = rows
+        for s in (np.round(np.arange(0.3, 1.01, 0.1), 2) if t else [0.0]):
+            res = []
+            for _ in range(trials):
+                o_s = simulated_order("saturated", t, float(s), rng)
+                o_p = simulated_order("pale", t, float(s), rng)
+                ci_s, ang = confusion_index(o_s, "saturated")
+                ci_p, _ = confusion_index(o_p, "pale")
+                res.append((ci_s, ci_p, ang))
+            r = np.array(res)
+            strong = (r[:, 0] > STRONG_INDEX) | (np.sqrt(r[:, 0] * r[:, 1]) > STRONG_COMBINED)
+            rows.append({"severity": float(s),
+                         "strong_rate": float(strong.mean()),
+                         "any_rate": float((strong | (np.sqrt(r[:, 0] * r[:, 1]) > FAIL_INDEX)).mean()),
+                         "angle": float(np.median(r[strong, 2])) if strong.any() else None})
+        out[t or "normal"] = rows
     return out
 
 
-# Calibrated with calibrate() (40 trials per cell). Protan axes fell between
-# +5 and +13 degrees, deutan axes between -4 and +5 degrees in Oklab a/b.
-# Angles closer than TYPE_MARGIN to both are reported as uncertain.
-FAIL_INDEX = 1.6
-AXIS_ANGLE = {"protan": 9.0, "deutan": -3.0}
+# Calibrated with simulated observers (Machado 2009 matrices, perception
+# noise SIM_NOISE, 600 normal and 200 CVD runs per cell):
+# - Strong: saturated round above STRONG_INDEX or both rounds (geometric
+#   mean) above STRONG_COMBINED. Strong forms (severity 1.0) reach it in
+#   100 %, normals never (also not at 1.7 x noise).
+# - FAIL_INDEX on the geometric mean of both rounds: normals exceed it in 0 %
+#   at SIM_NOISE and in about 8 % at 1.7 x SIM_NOISE (old caps and rule: 30 %);
+#   severity 0.7 is caught in about 80 %.
+# - Median axes of strong forms (both rounds combined): protan +8, deutan
+#   -3.5 degrees in Oklab a/b. Closer than TYPE_MARGIN to both: type unsure.
+# - Random clicking gives a selectivity S near 1; a type is only reported for
+#   S >= MIN_SELECTIVITY (random orders: about 2 %).
+# These are model values, not norms from real people.
+STRONG_INDEX = 2.4
+STRONG_COMBINED = 2.6
+FAIL_INDEX = 1.9
+AXIS_ANGLE = {"protan": 8.0, "deutan": -3.5}
 TYPE_MARGIN = 3.0
+MIN_SELECTIVITY = 1.8
+
+NOTES = {
+    "none": "Deine Reihenfolge war nahezu fehlerfrei. Klarfarbe startet mit einer leichten "
+            "Einstellung. Du kannst sie in der Demo anpassen.",
+    "moderate": "Deine Reihenfolge passt zu einer mittleren Einstellung. Welche Achse besser hilft, "
+                "ist hier nicht eindeutig: probiere Protan und Deutan in der Demo aus.",
+    "unsystematic": "Deine Reihenfolge wirkt unsystematisch. Bitte wiederhole den Test in Ruhe. "
+                    "Bis dahin startet Klarfarbe mit einer starken Einstellung; welche Achse hilft, wählst du selbst.",
+    "off_axis": "Deine Reihenfolge weicht ab, aber nicht so, wie es bei Rot-Grün-Schwäche typisch ist. "
+                "Klarfarbe ist dafür womöglich nicht die passende Hilfe. Wenn du dein Farbsehen genau "
+                "wissen willst, kann das eine Augenarztpraxis prüfen.",
+    "type_unsure": "Welche Achse besser hilft, ist nicht eindeutig: probiere Protan und Deutan in der Demo aus.",
+    "typed": "",
+}
 
 
 def evaluate(order_saturated: list[int], order_pale: list[int]) -> dict:
-    """Turn two arrangements into a profile suggestion.
+    """Turn two arrangements into a suggested starting setting (not a diagnosis).
 
-    Severity is coarse on purpose: failing the saturated round means strong,
-    failing only the pale round means moderate, passing both means mild or none.
+    Severity is coarse on purpose (0.3 / 0.6 / 0.85). A type (protan/deutan)
+    is only suggested for a strong, systematic confusion along one axis.
+    Raises ValueError if an order is not a permutation of the caps 1..15.
     """
     ci_s, ang_s = confusion_index(order_saturated, "saturated")
     ci_p, ang_p = confusion_index(order_pale, "pale")
-    fail_s, fail_p = ci_s > FAIL_INDEX, ci_p > FAIL_INDEX
-    base = {"index_saturated": ci_s, "index_pale": ci_p}
-    if fail_s:
-        severity, angle = 0.85, ang_s
-    elif fail_p:
-        # In calibration, about one in five moderate cases showed its axis on
-        # the wrong side, so the pale round only measures severity.
-        return {**base, "type": "unknown", "severity": 0.6, "angle": ang_p,
-                "note": "Mittlere Rot-Grün-Schwäche erkannt. Der Typ lässt sich bei dieser Stärke "
-                        "nicht sicher bestimmen: bitte Protan oder Deutan selbst wählen."}
-    else:
-        return {**base, "type": "unknown", "severity": 0.3, "angle": None,
-                "note": "Keine deutliche Verwechslung. Entweder keine oder eine leichte Farbsehschwäche."}
+    sel = selectivity(order_saturated, "saturated")
+    base = {"index_saturated": ci_s, "index_pale": ci_p, "selectivity": sel}
+
+    def result(type_, severity, angle, key):
+        return {**base, "type": type_, "severity": severity, "angle": angle,
+                "note_key": key, "note": NOTES[key]}
+
+    comb = _combined(ci_s, ci_p)
+    if not (ci_s > STRONG_INDEX or comb > STRONG_COMBINED):
+        if comb > FAIL_INDEX:
+            return result("unknown", 0.6, ang_p, "moderate")
+        return result("unknown", 0.3, None, "none")
+    if sel < MIN_SELECTIVITY:
+        return result("unknown", 0.85, ang_s, "unsystematic")
+    angle = combined_axis(order_saturated, order_pale)
 
     def dist(a: float, b: float) -> float:
         d = abs(a - b) % 180.0
@@ -170,13 +251,10 @@ def evaluate(order_saturated: list[int], order_pale: list[int]) -> dict:
 
     dp, dd = dist(angle, AXIS_ANGLE["protan"]), dist(angle, AXIS_ANGLE["deutan"])
     if min(dp, dd) > 30.0:
-        return {**base, "type": "unknown", "severity": severity, "angle": angle,
-                "note": "Verwechslung erkannt, aber nicht auf der Rot-Grün-Achse. Bitte augenärztlich abklären."}
+        return result("unknown", 0.85, angle, "off_axis")
     if abs(dp - dd) < TYPE_MARGIN:
-        return {**base, "type": "unknown", "severity": severity, "angle": angle,
-                "note": "Rot-Grün-Verwechslung erkannt, Typ unsicher. Bitte Protan oder Deutan selbst wählen."}
-    type_ = "protan" if dp < dd else "deutan"
-    return {**base, "type": type_, "severity": severity, "angle": angle, "note": ""}
+        return result("unknown", 0.85, angle, "type_unsure")
+    return result("protan" if dp < dd else "deutan", 0.85, angle, "typed")
 
 
 def suggested_profile(result: dict, fallback_type: str = "deutan"):

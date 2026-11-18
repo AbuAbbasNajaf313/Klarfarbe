@@ -43,6 +43,7 @@ _LMS_TO_RGB = np.array(
 
 
 def srgb_to_linear(c: np.ndarray) -> np.ndarray:
+    """sRGB -> linear; inputs are clipped to [0, 1] (no NaN for negatives)."""
     c = np.clip(np.asarray(c, dtype=np.float64), 0.0, 1.0)
     return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
@@ -77,3 +78,58 @@ def lch_to_lab(lch: np.ndarray) -> np.ndarray:
     lch = np.asarray(lch, dtype=np.float64)
     L, C, h = lch[..., 0], lch[..., 1], lch[..., 2]
     return np.stack([L, C * np.cos(h), C * np.sin(h)], axis=-1)
+
+
+# ---------- gamut ----------
+
+# Linear sRGB of an Oklab LCh colour is a cubic in C for fixed L and h:
+# lms_j = L + C * u_j(h), lin_i = sum_j M_ij * lms_j**3.
+_U_COS = _LAB_TO_LMS[:, 1]
+_U_SIN = _LAB_TO_LMS[:, 2]
+GAMUT_BISECT_STEPS = 18
+GAMUT_NEWTON_STEPS = 3
+GAMUT_C_HI = 0.5  # above every sRGB chroma (max is about 0.32)
+
+
+def _lin_rgb_lch(L: np.ndarray, C: np.ndarray, u: np.ndarray) -> np.ndarray:
+    lms_ = L[..., None] + C[..., None] * u  # (..., 3)
+    return (lms_ ** 3) @ _LMS_TO_RGB.T
+
+
+def max_chroma(L: np.ndarray, h: np.ndarray) -> np.ndarray:
+    """Largest Oklab chroma that is still inside sRGB at lightness L and hue h.
+
+    Bisection on "all channels in [0, 1]", then three Newton steps on the
+    channel that limits the gamut, so the result is exact to rounding and
+    independent of small differences in the bisection (Python/JS parity).
+    Returns 0 where even the grey L is outside [0, 1].
+    """
+    L = np.asarray(L, dtype=np.float64)
+    h = np.asarray(h, dtype=np.float64)
+    L, h = np.broadcast_arrays(L, h)
+    u = np.cos(h)[..., None] * _U_COS + np.sin(h)[..., None] * _U_SIN
+    lo = np.zeros(L.shape)
+    hi = np.full(L.shape, GAMUT_C_HI)
+    for _ in range(GAMUT_BISECT_STEPS):
+        mid = 0.5 * (lo + hi)
+        rgb = _lin_rgb_lch(L, mid, u)
+        inside = (rgb.min(axis=-1) >= 0.0) & (rgb.max(axis=-1) <= 1.0)
+        lo = np.where(inside, mid, lo)
+        hi = np.where(inside, hi, mid)
+    # the channel and bound that are violated at hi limit the gamut
+    rgb = _lin_rgb_lch(L, hi, u)
+    viol = np.maximum(rgb - 1.0, -rgb)
+    ch = viol.argmax(axis=-1)
+    bound = np.where(np.take_along_axis(rgb, ch[..., None], -1)[..., 0] > 0.5, 1.0, 0.0)
+    row = _LMS_TO_RGB[ch]  # (..., 3)
+    c = hi
+    for _ in range(GAMUT_NEWTON_STEPS):
+        lms_ = L[..., None] + c[..., None] * u
+        f = np.sum(row * lms_ ** 3, axis=-1) - bound
+        df = np.sum(row * 3.0 * lms_ ** 2 * u, axis=-1)
+        step = np.where(np.abs(df) > 1e-12, f / np.where(np.abs(df) > 1e-12, df, 1.0), 0.0)
+        c = c - step
+    # keep Newton inside the bisection bracket (it only refines)
+    c = np.clip(c, lo, hi)
+    grey_ok = (L >= 0.0) & (L <= 1.0)
+    return np.where(grey_ok & (lo > 0.0), c, np.where(grey_ok, lo, 0.0))

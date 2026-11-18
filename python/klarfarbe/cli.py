@@ -5,6 +5,10 @@
     python -m klarfarbe.cli image foto.jpg foto_klar.jpg --type deutan --severity 0.6
     python -m klarfarbe.cli cube klarfarbe.cube --type protan
     python -m klarfarbe.cli profile mein_profil.json --type deutan --severity 0.7
+    python -m klarfarbe.cli image kabel.jpg kabel_klar.jpg --elektro
+
+--elektro: Aderfarben (IEC 60445) stärker trennen, Hautton-Schutz aus.
+Keine Sicherheitsfunktion: Leitungen immer mit Prüfgerät prüfen.
 """
 from __future__ import annotations
 
@@ -12,16 +16,20 @@ import argparse
 import sys
 
 from .profile import TYPES, Profile
-from .snap import apply_lut, build_lut, write_cube
+from .snap import LUT_N, apply_lut, build_lut, write_cube
 
 
 def _profile(args: argparse.Namespace) -> Profile:
+    mode = "elektro" if args.elektro else "standard"
     if args.profile:
         prof = Profile.load(args.profile)
+        if args.elektro:
+            preset = Profile.default_for(prof.type, prof.severity, mode="elektro")
+            prof.mode, prof.protect_skin = "elektro", False
+            for key in ("brown", "blue", "yellow"):
+                prof.targets[key] = preset.targets[key]
     else:
-        prof = Profile.default_for(args.type, args.severity)
-    if args.handwerk:
-        prof.protect_skin = False
+        prof = Profile.default_for(args.type, args.severity, mode=mode)
     return prof
 
 
@@ -33,7 +41,10 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--type", choices=TYPES, default="deutan")
         p.add_argument("--severity", type=float, default=0.5)
         p.add_argument("--profile", help="JSON-Profil statt --type/--severity")
-        p.add_argument("--handwerk", action="store_true", help="Hautton-Schutz aus, z. B. fuer Aderfarben")
+        p.add_argument("--elektro", "--handwerk", dest="elektro", action="store_true",
+                       help="Modus Elektro: Aderfarben (IEC 60445) staerker trennen, Hautton-Schutz aus. "
+                            "Keine Sicherheitsfunktion. (--handwerk: alter Name)")
+        p.add_argument("--lut-size", type=int, default=LUT_N, help=f"LUT-Groesse 2-256 (Standard {LUT_N})")
         if name == "image":
             p.add_argument("input")
             p.add_argument("output")
@@ -45,7 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "profile":
         prof.save(args.output)
     elif args.cmd == "cube":
-        write_cube(build_lut(prof, 33), args.output)
+        write_cube(build_lut(prof, args.lut_size), args.output)
     else:
         try:
             import cv2
@@ -57,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Bild nicht lesbar: {args.input}", file=sys.stderr)
             return 1
         rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-        out = apply_lut(rgb, build_lut(prof, 33))
+        out = apply_lut(rgb, build_lut(prof, args.lut_size))
         cv2.imwrite(args.output, cv2.cvtColor(out, cv2.COLOR_RGB2BGR))
     print(f"Fertig: {args.output}")
     return 0

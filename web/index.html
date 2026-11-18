@@ -2,75 +2,135 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Klarfarbe – Demo</title>
 <style>
   :root {
     --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1b; --quiet: #6b6a66; --line: #e2e0da;
-    --accent: #1f5fbf; --radius: 10px;
+    --ctl: #8a8780;            /* control borders, 3.5:1 on white (WCAG 1.4.11) */
+    --accent: #1f5fbf; --err: #b3261e; --radius: 10px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #161615; --panel: #20201e; --ink: #ecebe7; --quiet: #a3a19b; --line: #34332f; --accent: #6ea2f0; }
+    :root { --bg: #161615; --panel: #20201e; --ink: #ecebe7; --quiet: #a3a19b; --line: #34332f; --ctl: #8c8a84; --accent: #6ea2f0; --err: #ff8a80; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); }
   header { padding: 20px 24px 8px; max-width: 1180px; margin: 0 auto; }
   h1 { font-size: 22px; margin: 0 0 4px; }
   header p { margin: 0; color: var(--quiet); font-size: 14px; line-height: 1.5; max-width: 760px; }
-  main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 16px 24px 32px; max-width: 1180px; margin: 0 auto; }
-  @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  .steps { display: flex; gap: 6px 16px; flex-wrap: wrap; padding: 0; margin: 10px 0 0; list-style: none; counter-reset: s; font-size: 14px; }
+  .steps li::before { counter-increment: s; content: counter(s); display: inline-grid; place-items: center; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--accent); color: var(--panel); margin-right: 6px; font-weight: 600; }
+  main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; padding: 16px 24px 32px; max-width: 1180px; margin: 0 auto; align-items: start; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
   .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--quiet); margin: 18px 0 8px; }
   .panel h2:first-child { margin-top: 0; }
   label { display: block; font-size: 14px; margin: 10px 0 4px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  button, .filebtn {
-    font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);
+  button, select, nav a {
+    font: inherit; font-size: 14px; min-height: 44px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--ctl);
     background: var(--panel); color: var(--ink); cursor: pointer;
   }
-  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  button:hover, .filebtn:hover { border-color: var(--accent); }
-  input[type=range] { width: 100%; accent-color: var(--accent); }
+  button[aria-pressed="true"], nav a[aria-current="page"] {
+    border: 2px solid var(--accent); color: var(--accent); font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  }
+  button[aria-pressed="true"]::before, nav a[aria-current="page"]::before { content: "✓ "; }
+  button:hover:not(:disabled), nav a:hover { border-color: var(--accent); }
+  button:disabled { cursor: not-allowed; color: var(--quiet); border-style: dashed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  input[type=range] { width: 100%; height: 44px; margin: 0; accent-color: var(--accent); }
   .val { float: right; color: var(--quiet); font-variant-numeric: tabular-nums; }
-  .check { display: flex; align-items: center; gap: 8px; }
   .hint { font-size: 12.5px; color: var(--quiet); line-height: 1.45; margin: 4px 0 0; }
+  .notice { border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+    padding: 10px 12px; border-radius: 6px; color: var(--ink); font-size: 13.5px; line-height: 1.5; margin: 10px 0 0; }
+  .notice.warn { border-left-color: var(--err); background: color-mix(in srgb, var(--err) 8%, var(--panel)); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  details.howto { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font-size: 13.5px; }
+  details.howto summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+  details.howto ol { margin: 0 0 10px; padding-left: 20px; line-height: 1.55; }
   .stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
-  canvas#view { width: 100%; height: auto; display: block; border-radius: 6px; cursor: crosshair; touch-action: none; }
-  .legend { display: flex; justify-content: space-between; font-size: 13px; color: var(--quiet); margin: 8px 2px 0; }
-  #probe { margin-top: 10px; font-size: 14px; min-height: 22px; display: flex; align-items: center; gap: 10px; }
-  .chip { display: inline-block; width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line); }
-  #msg { font-size: 13px; color: #b3261e; margin-top: 8px; min-height: 18px; }
-  textarea { width: 100%; height: 110px; font: 12px/1.4 ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); padding: 8px; }
-  footer { max-width: 1180px; margin: 0 auto; padding: 0 24px 32px; font-size: 13px; color: var(--quiet); }
+  .viewwrap { position: relative; width: 100%; margin: 0 auto; }
+  canvas#view { width: 100%; height: auto; display: block; border-radius: 6px; cursor: crosshair; touch-action: pan-y; }
+  #splitBadge { position: absolute; top: 8px; transform: translateX(-50%); display: flex; gap: 2px; pointer-events: none;
+    font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  #splitBadge span { background: rgba(20,20,20,.82); color: #fff; padding: 3px 7px; }
+  #splitBadge span:first-child { border-radius: 6px 0 0 6px; }
+  #splitBadge span:last-child { border-radius: 0 6px 6px 0; }
+  #holdOrig.held { border: 2px solid var(--accent); color: var(--accent); font-weight: 600; }
+  .legend { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; color: var(--quiet); margin: 4px 2px 0; }
+  #probe { margin-top: 8px; font-size: 14px; min-height: 22px; display: flex; align-items: center; gap: 10px; }
+  .chip { display: inline-block; width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--ctl); flex: none; }
+  #msg { font-size: 13.5px; color: var(--ink); margin-top: 8px; min-height: 18px; }
+  #msg[data-kind="error"] { color: var(--err); font-weight: 600; }
+  textarea { width: 100%; height: 110px; font: 12px/1.4 ui-monospace, Menlo, monospace; border: 1px solid var(--ctl); border-radius: 8px; background: var(--bg); color: var(--ink); padding: 8px; }
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 24px 32px; font-size: 13px; color: var(--quiet); line-height: 1.5; }
+  footer .notice { max-width: 860px; margin: 0 0 10px; }
   nav { max-width: 1180px; margin: 0 auto; padding: 8px 24px 0; display: flex; gap: 6px; }
-  nav a { text-decoration: none; padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); color: var(--ink); font-size: 14px; }
-  nav a[aria-current="page"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  nav a { text-decoration: none; display: inline-flex; align-items: center; }
   [hidden] { display: none !important; }
   #profiltest { max-width: 1180px; margin: 0 auto; padding: 16px 24px 32px; }
   #profiltest .panel { max-width: 860px; }
   #profiltest p { line-height: 1.55; font-size: 14.5px; }
+  #testRun > h2:first-child, #testResult > h2:first-child { margin-top: 18px; }
+  .progress { font-weight: 600; margin: 0 0 8px; }
   .tray { background: #4a4a48; border-radius: 10px; padding: 14px; display: flex; flex-wrap: wrap; gap: 10px; min-height: 76px; align-items: center; }
-  .cap { width: 52px; height: 52px; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); cursor: pointer; padding: 0; }
+  .cap { width: 52px; height: 52px; min-height: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); cursor: pointer; padding: 0; }
   .cap:hover, .cap:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
   .cap.ref { cursor: default; outline: 2px dashed rgba(255,255,255,.7); outline-offset: 3px; }
   .cap.small { width: 38px; height: 38px; cursor: default; }
+  .cap.small.last { width: 52px; height: 52px; outline: 3px solid #fff; outline-offset: 3px; }
   .result { font-size: 15px; line-height: 1.6; }
   .result strong { font-size: 17px; }
-  select { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); width: 100%; margin-top: 8px; }
+  select { width: 100%; margin-top: 8px; padding: 6px 8px; }
+  dialog { max-width: 480px; border: 1px solid var(--ctl); border-radius: var(--radius); background: var(--panel); color: var(--ink); padding: 18px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { font-size: 18px; margin: 0 0 8px; }
+  dialog p, dialog li { font-size: 14.5px; line-height: 1.5; }
+  /* wearable overlays */
+  .overlay { position: fixed; inset: 0; display: flex; z-index: 20; background: rgba(0,0,0,.85); color: #fff;
+    font-size: 20px; line-height: 1.4; text-align: center; pointer-events: none; }
+  .overlay > div { flex: 1; display: grid; place-items: center; padding: 24px; }
+  .overlay.bottom { inset: auto 0 0 0; background: rgba(0,0,0,.65); font-size: 15px; }
+  .overlay.bottom > div { padding: 10px; }
+  body:not(.sbs) .overlay > div + div { display: none; }
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; }
+    main > .stage { order: -1; position: sticky; top: 0; z-index: 5; padding: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+    .viewwrap { width: fit-content; max-width: 100%; }
+    main > .stage canvas#view { width: auto; max-width: 100%; max-height: 40vh; }
+    #holdOrig.held { border: 2px solid var(--accent); color: var(--accent); font-weight: 600; }
+  .legend { font-size: 12.5px; }
+    #probe { font-size: 13px; margin-top: 4px; }
+    input#splitR { height: 32px; }
+    .legend .long, #holdHint { display: none; }
+    #holdOrig { padding: 6px 12px; }
+  }
   body.glasses { background: #000; overflow: hidden; }
   body.glasses header, body.glasses nav, body.glasses footer, body.glasses #profiltest,
-  body.glasses #demo > .panel, body.glasses .legend, body.glasses #probe { display: none !important; }
+  body.glasses #demo > .panel, body.glasses .legend, body.glasses #probe, body.glasses #msg,
+  body.glasses #splitR, body.glasses #splitBadge { display: none !important; }
   body.glasses main#demo { display: block; padding: 0; max-width: none; }
-  body.glasses .stage { position: fixed; inset: 0; padding: 0; border: 0; border-radius: 0; background: #000; z-index: 10; }
-  body.glasses canvas#view { width: 100vw; height: 100vh; border-radius: 0; cursor: pointer; }
+  body.glasses .stage { position: fixed; inset: 0; padding: 0; border: 0; border-radius: 0; background: #000; z-index: 10; box-shadow: none; }
+  body.glasses .viewwrap { width: 100vw; max-width: none; }
+  body.glasses canvas#view { width: 100vw !important; height: 100vh !important; max-height: none !important; max-width: none !important;
+    border-radius: 0; cursor: pointer; touch-action: none; }
   a { color: var(--accent); }
 </style>
 </head>
 <body>
 <header>
-  <h1>Klarfarbe – Demo</h1>
-  <p>Persönliche Farbhilfe bei Rot-Grün-Schwäche: Nur eindeutig erkannte Farben rasten auf einen gut unterscheidbaren Ton ein. Grau, Schwarz, Weiß, Hauttöne und unsichere Farben bleiben unverändert. Im <a href="#profiltest">Profiltest</a> ermittelst du deine Einstellung, in der Demo siehst du das Ergebnis.</p>
+  <h1>Klarfarbe – Farbhilfe bei Rot-Grün-Schwäche</h1>
+  <p>Rotes und grünes Kabel sehen für dich gleich aus? Klarfarbe färbt nur eindeutig rote, grüne usw. Stellen so um, dass du sie leichter auseinanderhältst. Grau, Schwarz, Weiß, Hauttöne und unklare Farben bleiben, wie sie sind.</p>
+  <ol class="steps">
+    <li><a href="#profiltest">Einstellung finden</a>&nbsp;(ca. 3 Min.)</li>
+    <li><strong>Kamera</strong>&nbsp;antippen und auf etwas Farbiges halten</li>
+    <li>Optional: <strong>Pappbrille</strong>&nbsp;oder Meta Quest</li>
+  </ol>
 </header>
 <nav aria-label="Bereiche">
   <a href="#demo" id="navDemo" aria-current="page">Demo</a>
@@ -78,30 +138,34 @@
 </nav>
 <section id="profiltest" hidden>
   <div class="panel">
-    <h2>Profiltest</h2>
-    <p>Ordne die Farben nach Ähnlichkeit. Starte bei der gestrichelt markierten Farbe und wähle immer die Farbe, die der <em>letzten</em> in deiner Reihe am ähnlichsten ist. Zwei Runden: erst kräftige, dann blasse Farben. Dauer etwa drei Minuten.</p>
-    <p class="hint">Für ein brauchbares Ergebnis: Bildschirmhelligkeit hoch, Night Shift und True Tone aus, kein Sonnenlicht auf dem Display. Das ist ein Hilfsmittel zur Einstellung von Klarfarbe, <strong>kein medizinischer Test</strong> und keine Diagnose.</p>
+    <h2 tabindex="-1" id="testHead">Profiltest</h2>
+    <p>Ordne die Farben nach Ähnlichkeit. Starte bei der gestrichelt markierten Farbe und wähle immer die Farbe, die der <em>letzten</em> (groß, weiß umrandet) in deiner Reihe am ähnlichsten ist. Zwei Runden: erst kräftige, dann blasse Farben. Dauer etwa drei Minuten.</p>
+    <p class="notice"><span aria-hidden="true">💡 </span><strong>Vorher einstellen:</strong> Bildschirmhelligkeit hoch; Night Shift, True Tone, Nachtlicht/Augenschutz/Blaulichtfilter und Farbfilter in den Bedienungshilfen aus. Normales Raumlicht, kein Sonnenlicht auf dem Display. Dunkelmodus ist egal. Das ist ein Hilfsmittel zur Einstellung von Klarfarbe, <strong>kein medizinischer Test</strong> und keine Diagnose.</p>
     <div id="testRun">
       <h2 id="roundLabel">Runde 1 von 2 · kräftige Farben</h2>
+      <p class="progress" id="progress" aria-live="polite">0 von 15 Farben gewählt</p>
       <p class="hint">Deine Reihe</p>
       <div class="tray" id="rowDone" aria-label="Deine Reihe"></div>
       <p class="hint" style="margin-top:14px">Wähle die nächste Farbe</p>
       <div class="tray" id="rowLeft" aria-label="Noch zu ordnen"></div>
       <div class="row" style="margin-top:12px">
-        <button id="undo">Rückgängig</button>
-        <button id="restart">Neu starten</button>
+        <button id="undo" type="button">Rückgängig</button>
+        <button id="restart" type="button">Neu starten</button>
       </div>
     </div>
     <div id="testResult" hidden>
-      <h2>Ergebnis</h2>
+      <h2 tabindex="-1">Ergebnis</h2>
       <div class="result" id="resultText"></div>
-      <div class="row" id="typeChoice" style="margin-top:10px" hidden>
-        <button id="chooseDeutan" aria-pressed="true">Deutan</button>
-        <button id="chooseProtan" aria-pressed="false">Protan</button>
+      <div id="typeChoice" hidden>
+        <p class="hint" style="margin-top:10px">Welche Achse hilft dir besser? Probiere beide in der Demo aus.</p>
+        <div class="row" style="margin-top:6px">
+          <button id="chooseDeutan" type="button" aria-pressed="true">Deutan</button>
+          <button id="chooseProtan" type="button" aria-pressed="false">Protan</button>
+        </div>
       </div>
       <div class="row" style="margin-top:14px">
-        <button id="applyProfile">Profil in der Demo verwenden</button>
-        <button id="restart2">Test wiederholen</button>
+        <button id="applyProfile" type="button">Profil in der Demo verwenden</button>
+        <button id="restart2" type="button">Test wiederholen</button>
       </div>
     </div>
   </div>
@@ -110,53 +174,111 @@
   <section class="panel" aria-label="Einstellungen">
     <h2>Bild</h2>
     <div class="row">
-      <button id="srcTest" aria-pressed="true">Testbild</button>
-      <label class="filebtn" style="margin:0">Foto wählen<input id="file" type="file" accept="image/*" hidden></label>
-      <button id="srcCam" aria-pressed="false">Kamera</button>
+      <button id="srcTest" type="button" aria-pressed="true">Testbild</button>
+      <button id="fileBtn" type="button">Foto wählen</button>
+      <button id="srcCam" type="button" aria-pressed="false">Kamera</button>
     </div>
-    <p class="hint">Fotos werden nur in deinem Browser verarbeitet und nirgends hochgeladen.</p>
+    <input id="file" type="file" accept="image/*" hidden>
+    <p class="hint">Fotos und Kamerabild werden nur in deinem Browser verarbeitet und nirgends hochgeladen.</p>
     <select id="camSel" aria-label="Kamera wählen" hidden></select>
-
-    <h2>Tragbar</h2>
-    <div class="row">
-      <button id="glassFull">Vollbild</button>
-      <button id="glassSbs">Pappbrille</button>
-    </div>
-    <p class="hint">Nutzt die Rückkamera. Pappbrille: Smartphone quer in eine VR-Halterung stecken. Antippen beendet den Modus. Meta Quest 3: Seite im Quest-Browser öffnen, „Vollbild“ wählen und als Kamera „camera 1, facing back“.</p>
-    <div id="msg" role="status"></div>
 
     <h2>Profil</h2>
     <div class="row">
-      <button id="tDeutan" aria-pressed="true">Deutan</button>
-      <button id="tProtan" aria-pressed="false">Protan</button>
+      <button id="tDeutan" type="button" aria-pressed="true">Deutan</button>
+      <button id="tProtan" type="button" aria-pressed="false">Protan</button>
     </div>
     <p class="hint">Deutan: Grün-Schwäche (häufiger). Protan: Rot-Schwäche, Rot wirkt dunkler.</p>
-    <label>Stärke <span class="val" id="sevV"></span></label>
+    <label for="sev">Stärke <span class="val" id="sevV"></span></label>
     <input id="sev" type="range" min="0" max="1" step="0.05" value="0.6">
-    <label>Sicherheitsschwelle <span class="val" id="thrV"></span></label>
-    <input id="thr" type="range" min="0.2" max="0.95" step="0.05" value="0.5">
-    <p class="hint">Höher = nur sehr sichere Farben werden verändert.</p>
-    <label class="check"><input id="skin" type="checkbox" checked> Hautton-Schutz (Alltag)</label>
-    <p class="hint">Aus = Handwerksmodus: auch Brauntöne wie Aderfarben werden verstärkt.</p>
+    <label for="thr">Eindeutigkeit <span class="val" id="thrV"></span></label>
+    <input id="thr" type="range" min="0.2" max="0.95" step="0.05" value="0.5" aria-describedby="thrHint">
+    <p class="hint" id="thrHint">Höher = nur sehr eindeutige Farben werden verändert.</p>
+    <p class="hint" style="margin-top:10px">Modus</p>
+    <div class="row" role="group" aria-label="Modus">
+      <button id="mDaily" type="button" aria-pressed="true">Alltag</button>
+      <button id="mWork" type="button" aria-pressed="false">Werkstatt</button>
+    </div>
+    <p class="hint" id="modeHint">Alltag: Hauttöne und Brauntöne bleiben geschützt.</p>
+    <p class="notice warn" id="workWarn" hidden><span aria-hidden="true">⚠ </span>Werkstatt: auch Brauntöne (z. B. Aderfarben) werden verstärkt. <strong>Keine Sicherheitsfunktion – Leitungen immer messen.</strong></p>
+
+    <h2>Tragbar</h2>
+    <div class="row">
+      <button id="glassFull" type="button">Vollbild</button>
+      <button id="glassSbs" type="button">Pappbrille</button>
+      <button id="glassXR" type="button" disabled>Quest-Rundumsicht (nur im Quest-Browser)</button>
+    </div>
+    <label for="zoom">Zoom <span class="val" id="zoomV"></span></label>
+    <input id="zoom" type="range" min="1" max="2" step="0.05" value="1">
+    <label for="ipd">Augenabstand (Pappbrille) <span class="val" id="ipdV"></span></label>
+    <input id="ipd" type="range" min="55" max="75" step="1" value="63" aria-describedby="ipdHint">
+    <p class="hint" id="ipdHint">Verschiebt die beiden Bildmitten. Standard 63 mm. Stell ihn so ein, dass beide Bilder zu einem verschmelzen.</p>
+    <p class="notice"><span aria-hidden="true">ℹ </span>Pappbrille und Quest sind <strong>Vorschau-Prototypen</strong>: Das Bild hängt fest vor dem Kopf, kommt leicht verzögert und ist für beide Augen gleich (keine Tiefe). Nur im Sitzen benutzen, nicht beim Gehen, Fahren oder an Maschinen. Bei Unwohlsein sofort absetzen.</p>
+    <details class="howto"><summary>So geht’s mit der Pappbrille</summary>
+      <ol>
+        <li>Automatische Bildschirm-Sperre und Auto-Helligkeit ausschalten.</li>
+        <li>„Augenabstand“ einstellen (Standard 63 mm).</li>
+        <li>„Pappbrille“ tippen, Kamera erlauben, Handy quer drehen.</li>
+        <li>Handy in die Halterung stecken, das Kamera-Loch frei lassen.</li>
+        <li>Verschwimmt das Bild doppelt: herausnehmen und den Augenabstand ändern.</li>
+        <li>Beenden: zweimal schnell tippen, lange drücken oder Zurück-Taste. Ein einzelnes Tippen (Brillen-Knopf) beendet nicht.</li>
+      </ol>
+    </details>
+    <details class="howto"><summary>So geht’s mit Meta Quest 3</summary>
+      <ol>
+        <li>Diese Seite im Quest-Browser öffnen.</li>
+        <li>„Kamera“ tippen und den Zugriff erlauben.</li>
+        <li>In der Kameraliste „camera 1, facing back“ wählen.</li>
+        <li>„Quest-Rundumsicht“ tippen, Hinweis lesen, „Starten“.</li>
+        <li>Mit „Zoom“ den Ausschnitt an dein Sichtfeld anpassen.</li>
+        <li>Beenden: Menütaste der Quest. Nach 15 Minuten endet der Modus von selbst.</li>
+      </ol>
+    </details>
 
     <h2>Export</h2>
     <div class="row">
-      <button id="copyProfile">Profil kopieren</button>
-      <button id="copyCube">.cube kopieren</button>
+      <button id="copyProfile" type="button">Profil kopieren</button>
+      <button id="copyCube" type="button">.cube kopieren</button>
     </div>
     <p class="hint">Die .cube-Datei (LUT) funktioniert in Premiere Pro, DaVinci Resolve und OBS. Text einfügen und als <code>klarfarbe.cube</code> speichern.</p>
     <textarea id="out" readonly aria-label="Export" hidden></textarea>
   </section>
 
   <section class="stage" aria-label="Vorschau">
-    <canvas id="view" width="960" height="600" aria-label="Vergleich Original und Klarfarbe"></canvas>
-    <div class="legend"><span>◀ Original</span><span>Trennlinie im Bild ziehen</span><span>Klarfarbe ▶</span></div>
+    <div class="viewwrap">
+      <canvas id="view" width="960" height="600" role="img" aria-label="Vergleich: links ohne, rechts mit Klarfarbe" aria-describedby="probe"></canvas>
+      <div id="splitBadge" aria-hidden="true"><span>◀ ohne</span><span>mit ▶</span></div>
+    </div>
+    <label for="splitR" class="sr-only">Trennlinie zwischen ohne und mit Klarfarbe</label>
+    <input id="splitR" type="range" min="0" max="1" step="0.01" value="0.5">
+    <div class="legend">
+      <span>◀ ohne<span class="long"> Klarfarbe</span></span>
+      <button id="holdOrig" type="button" aria-describedby="holdHint">Halten: alles ohne</button>
+      <span>mit<span class="long"> Klarfarbe</span> ▶</span>
+    </div>
+    <p class="hint" id="holdHint">Trennlinie am Griff im Bild oder mit dem Regler verschieben.</p>
     <div id="probe" aria-live="polite">Zeige auf eine Farbe, um zu sehen, wie Klarfarbe sie einordnet.</div>
+    <div id="msg" role="status"></div>
+    <div id="rotateHint" class="overlay" role="alert" hidden><div>Handy quer drehen, dann in die Pappbrille stecken.</div></div>
+    <div id="glassHint" class="overlay bottom" role="status" hidden><div></div><div></div></div>
   </section>
 </main>
+<dialog id="xrDlg" aria-labelledby="xrDlgHead">
+  <h2 id="xrDlgHead">Quest-Rundumsicht: Vorschau-Prototyp</h2>
+  <ul>
+    <li>Das Bild hängt fest vor dem Kopf und bewegt sich verzögert mit. Das kann Übelkeit auslösen.</li>
+    <li>Beide Augen sehen dasselbe Kamerabild, es gibt keine echte Tiefe.</li>
+    <li>Nur im Sitzen benutzen. Nicht beim Gehen, Fahren oder an Maschinen.</li>
+    <li>Bei Unwohlsein sofort absetzen. Beenden mit der Menütaste, spätestens nach 15 Minuten automatisch.</li>
+  </ul>
+  <p><strong>Hilfe zum Unterscheiden von Farben, keine Sicherheitsfunktion.</strong></p>
+  <div class="row">
+    <button id="xrGo" type="button">Verstanden, starten</button>
+    <button id="xrCancel" type="button">Abbrechen</button>
+  </div>
+</dialog>
 <footer>
-  Klarfarbe 0.1 · Open Source (Apache-2.0) · <a href="https://github.com/AbuAbbasNajaf313/Klarfarbe">github.com/AbuAbbasNajaf313/Klarfarbe</a> ·
-  Eine Hilfe zur Farbunterscheidung, kein Ersatz für Prüfungen oder Sicherheitsmessungen.
+  <p class="notice warn" id="purpose"><span aria-hidden="true">⚠ </span><strong>Hilfe zum Unterscheiden von Farben.</strong> Keine Sicherheitsfunktion: nicht für Ampeln, Stromkabel oder Lebensmittelsicherheit als alleinige Entscheidung. Kein Medizinprodukt, kein Diagnose- oder Eignungstest.</p>
+  Klarfarbe 0.1 · Open Source (Apache-2.0) · <a href="https://github.com/AbuAbbasNajaf313/Klarfarbe">github.com/AbuAbbasNajaf313/Klarfarbe</a>
 </footer>
 
 <script>
@@ -164,19 +286,41 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Klarfarbe core in plain JavaScript (no dependencies).
-// Mirrors python/klarfarbe exactly; tests/compare_python.mjs checks this.
+// Mirrors python/klarfarbe exactly; the JS tests in python/tests
+// (test_js_*.py and the parity tests) check this with node.
 // Works in browsers, Node.js and Adobe UXP.
 
 const TAU = 2 * Math.PI;
 const deg = (d) => (d * Math.PI) / 180;
 
+/** Default LUT size (same as Python LUT_N). Power of two, as the OpenXR passthrough colour LUT needs. */
+const LUT_N = 64;
+
+/** Purpose statement to show next to any profile test result. */
+const DISCLAIMER =
+  "Klarfarbe ist eine Sehhilfe-Software, kein Medizinprodukt und kein Diagnose- oder Eignungstest.";
+
 // ---------- Oklab (float, sRGB channels in [0, 1]) ----------
 
-const toLinear = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+const toLinear = (c) => {
+  const x = Math.min(1, Math.max(0, c));
+  return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+};
 const toSrgb = (c) => {
   const x = Math.min(1, Math.max(0, c));
   return x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
 };
+
+const LAB_TO_LMS = [
+  [1.0, 0.3963377774, 0.2158037573],
+  [1.0, -0.1055613458, -0.0638541728],
+  [1.0, -0.0894841775, -1.291485548],
+];
+const LMS_TO_RGB = [
+  [4.0767416621, -3.3077115913, 0.2309699292],
+  [-1.2684380046, 2.6097574011, -0.3413193965],
+  [-0.0041960863, -0.7034186147, 1.707614701],
+];
 
 function srgbToOklab(r, g, b) {
   const R = toLinear(r), G = toLinear(g), B = toLinear(b);
@@ -204,34 +348,90 @@ function oklabToSrgb(L, a, b) {
 const toLch = ([L, a, b]) => [L, Math.hypot(a, b), Math.atan2(b, a)];
 const fromLch = (L, C, h) => [L, C * Math.cos(h), C * Math.sin(h)];
 
+// ---------- gamut (mirrors oklab.max_chroma) ----------
+
+const GAMUT_BISECT_STEPS = 18;
+const GAMUT_NEWTON_STEPS = 3;
+const GAMUT_C_HI = 0.5;
+
+function linRgbLch(L, C, u) {
+  const q0 = (L + C * u[0]) ** 3, q1 = (L + C * u[1]) ** 3, q2 = (L + C * u[2]) ** 3;
+  return LMS_TO_RGB.map((row) => row[0] * q0 + row[1] * q1 + row[2] * q2);
+}
+
+/** Largest Oklab chroma inside sRGB at lightness L and hue h (radians). */
+function maxChroma(L, h) {
+  const ch = Math.cos(h), sh = Math.sin(h);
+  const u = LAB_TO_LMS.map((r) => ch * r[1] + sh * r[2]);
+  let lo = 0, hi = GAMUT_C_HI;
+  for (let k = 0; k < GAMUT_BISECT_STEPS; k++) {
+    const mid = 0.5 * (lo + hi);
+    const rgb = linRgbLch(L, mid, u);
+    const inside = rgb[0] >= 0 && rgb[1] >= 0 && rgb[2] >= 0 && rgb[0] <= 1 && rgb[1] <= 1 && rgb[2] <= 1;
+    if (inside) lo = mid; else hi = mid;
+  }
+  const rgb = linRgbLch(L, hi, u);
+  let chan = 0, best = -Infinity;
+  for (let i = 0; i < 3; i++) {
+    const v = Math.max(rgb[i] - 1, -rgb[i]);
+    if (v > best) { best = v; chan = i; }
+  }
+  const bound = rgb[chan] > 0.5 ? 1 : 0;
+  const row = LMS_TO_RGB[chan];
+  let c = hi;
+  for (let k = 0; k < GAMUT_NEWTON_STEPS; k++) {
+    const m0 = L + c * u[0], m1 = L + c * u[1], m2 = L + c * u[2];
+    const f = row[0] * m0 ** 3 + row[1] * m1 ** 3 + row[2] * m2 ** 3 - bound;
+    const df = row[0] * 3 * m0 ** 2 * u[0] + row[1] * 3 * m1 ** 2 * u[1] + row[2] * 3 * m2 ** 2 * u[2];
+    c -= Math.abs(df) > 1e-12 ? f / df : 0;
+  }
+  c = Math.min(Math.max(c, lo), hi);
+  const greyOk = L >= 0 && L <= 1;
+  if (!greyOk) return 0;
+  return lo > 0 ? c : lo;
+}
+
 // ---------- categories ----------
 
+/** snaps: false = recognised, but never pulled to its prototype (turquoise). */
 const CATEGORIES = [
-  { key: "red", label: "Rot", srgb: [205, 30, 40] },
-  { key: "orange", label: "Orange", srgb: [240, 130, 30] },
-  { key: "yellow", label: "Gelb", srgb: [245, 215, 40] },
-  { key: "green", label: "Grün", srgb: [40, 155, 60] },
-  { key: "blue", label: "Blau", srgb: [40, 90, 205] },
-  { key: "purple", label: "Lila", srgb: [125, 50, 155] },
-  { key: "pink", label: "Pink", srgb: [235, 125, 180] },
-  { key: "brown", label: "Braun", srgb: [120, 70, 35] },
+  { key: "red", label: "Rot", srgb: [205, 30, 40], snaps: true },
+  { key: "orange", label: "Orange", srgb: [240, 130, 30], snaps: true },
+  { key: "yellow", label: "Gelb", srgb: [245, 215, 40], snaps: true },
+  { key: "green", label: "Grün", srgb: [40, 155, 60], snaps: true },
+  { key: "blue", label: "Blau", srgb: [40, 90, 205], snaps: true },
+  { key: "purple", label: "Lila", srgb: [125, 50, 155], snaps: true },
+  { key: "pink", label: "Pink", srgb: [235, 125, 180], snaps: true },
+  { key: "brown", label: "Braun", srgb: [120, 70, 35], snaps: true },
+  { key: "turquoise", label: "Türkis", srgb: [0, 165, 180], snaps: false },
 ];
+const KEYS = CATEGORIES.map((c) => c.key);
 const PROTO = CATEGORIES.map((c) => toLch(srgbToOklab(...c.srgb.map((v) => v / 255))));
 
 const SIGMA_L = 0.16;
 const SIGMA_H = 0.3;
-const ACH_LOW = 0.025;
-const ACH_HIGH = 0.06;
+const ACH_LOW = 0.02;
+const ACH_HIGH = 0.07;
+const ACH_DARK_EXTRA = 0.03;
+const DARK_RAMP = [0.15, 0.35];
+const DARK_FADE = [0.12, 0.26];
 const SKIN_HUE = deg(55);
 const SKIN_HUE_INNER = deg(20);
-const SKIN_HUE_OUTER = deg(32);
-const SKIN_C_INNER = 0.085;
-const SKIN_C_OUTER = 0.105;
+const SKIN_HUE_OUTER = deg(30);
+const SKIN_C_INNER = 0.105;
+const SKIN_C_OUTER = 0.125;
+const SKIN_FRINGE_HUE = [deg(30), deg(38)];
+const SKIN_FRINGE_C = [0.05, 0.07];
 
 function smoothstep(e0, e1, x) {
   if (e1 <= e0) return x >= e0 ? 1 : 0;
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
+}
+
+function ramp(e0, e1, x) {
+  if (e1 <= e0) return x >= e0 ? 1 : 0;
+  return Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
 }
 
 /** Signed shortest angle h2 - h1 in (-pi, pi], same as Python's modulo. */
@@ -240,7 +440,12 @@ function hueDiff(h1, h2) {
   return d - TAU * Math.floor(d / TAU) - Math.PI;
 }
 
-/** Returns {index, probability, chromaticity} for one Oklab LCh colour. */
+function chromaticity(L, C) {
+  const extra = ACH_DARK_EXTRA * (1 - smoothstep(DARK_RAMP[0], DARK_RAMP[1], L));
+  return ramp(ACH_LOW, ACH_HIGH, C - extra) * smoothstep(DARK_FADE[0], DARK_FADE[1], L);
+}
+
+/** Returns {index, probability, probabilities, chromaticity} for one Oklab LCh colour. */
 function classify([L, C, h]) {
   const logits = PROTO.map(([pL, , ph]) => {
     const dL = (L - pL) / SIGMA_L;
@@ -250,79 +455,187 @@ function classify([L, C, h]) {
   const max = Math.max(...logits);
   const e = logits.map((v) => Math.exp(v - max));
   const sum = e.reduce((a, b) => a + b, 0);
+  const probabilities = e.map((v) => v / sum);
   let index = 0;
   for (let i = 1; i < e.length; i++) if (e[i] > e[index]) index = i;
-  return { index, probability: e[index] / sum, chromaticity: smoothstep(ACH_LOW, ACH_HIGH, C) };
+  return { index, probability: probabilities[index], probabilities, chromaticity: chromaticity(L, C) };
 }
 
 function skinWeight([, C, h]) {
-  const inHue = 1 - smoothstep(SKIN_HUE_INNER, SKIN_HUE_OUTER, Math.abs(hueDiff(h, SKIN_HUE)));
-  const inChroma = 1 - smoothstep(SKIN_C_INNER, SKIN_C_OUTER, C);
-  return inHue * inChroma;
+  const dh = Math.abs(hueDiff(h, SKIN_HUE));
+  const core = (1 - smoothstep(SKIN_HUE_INNER, SKIN_HUE_OUTER, dh)) * (1 - smoothstep(SKIN_C_INNER, SKIN_C_OUTER, C));
+  const fringe =
+    (1 - smoothstep(SKIN_FRINGE_HUE[0], SKIN_FRINGE_HUE[1], dh)) * (1 - smoothstep(SKIN_FRINGE_C[0], SKIN_FRINGE_C[1], C));
+  return Math.max(core, fringe);
 }
 
 // ---------- profile ----------
 
-function defaultProfile(type = "deutan", severity = 0.5) {
+const PROFILE_TYPES = ["protan", "deutan", "unknown"];
+const PROFILE_MODES = ["standard", "elektro"];
+
+const T = (hue_shift_deg = 0, min_lightness = null, min_chroma = null) => ({ hue_shift_deg, min_lightness, min_chroma });
+
+/**
+ * Starting profile, same values as Python Profile.default_for.
+ * options.mode: "standard" (default) or "elektro" (cable colours after IEC 60445,
+ * skin protection off; not a safety function).
+ */
+function defaultProfile(type = "deutan", severity = 0.5, options = {}) {
+  const mode = options.mode ?? "standard";
   const s = severity;
-  const targets = {
-    green: { hue_shift_deg: 20 * s, min_lightness: null },
-    purple: { hue_shift_deg: 0, min_lightness: 0.45 + 0.1 * s },
-    brown: { hue_shift_deg: 0, min_lightness: 0.38 },
-    red:
-      type === "protan"
-        ? { hue_shift_deg: -6 * s, min_lightness: 0.5 + 0.1 * s }
-        : { hue_shift_deg: 0, min_lightness: 0.5 },
-  };
-  return {
+  const targets = { brown: T(0, 0.38) };
+  if (type === "protan") {
+    targets.red = T(12.0 * s, 0.5);
+    targets.green = T(15.0 * s, 0.62 + 0.08 * s);
+    targets.purple = T(-10.0 * s, 0.55 + 0.1 * s);
+  } else {
+    targets.red = T(0.0, 0.5);
+    targets.green = T(60.0 * s ** 3, 0.62 + 0.08 * s);
+    targets.purple = T(-10.0 * s, 0.55 + 0.1 * s);
+  }
+  let protect_skin = true;
+  if (mode === "elektro") {
+    protect_skin = false;
+    targets.brown = T(8.0, 0.4, 0.12);
+    targets.blue = T(0, 0.5);
+    targets.yellow = T(0, 0.8);
+  }
+  return validateProfile({
     format: "klarfarbe-profile",
     version: "0.1",
     type,
     severity: s,
     threshold: 0.5,
     strength: 0.85,
-    protect_skin: true,
+    protect_skin,
     max_chroma_gain: 2.0,
+    clip_guard: true,
+    mode,
+    targets,
+  });
+}
+
+function num(v, name, lo, hi) {
+  if (typeof v !== "number" || !Number.isFinite(v)) throw new RangeError(`${name} must be a finite number`);
+  if ((lo !== undefined && v < lo) || (hi !== undefined && v > hi))
+    throw new RangeError(`${name} must be in [${lo}, ${hi}], got ${v}`);
+  return v;
+}
+const opt = (v, name, lo, hi) => (v === null || v === undefined ? null : num(v, name, lo, hi));
+function bool(v, name) {
+  if (typeof v !== "boolean") throw new RangeError(`${name} must be true or false`);
+  return v;
+}
+
+/**
+ * Validate a profile object (e.g. parsed JSON) like Python Profile.from_dict.
+ * Returns a clean copy with defaults filled in; throws RangeError if invalid.
+ * Unknown fields and unknown categories are dropped.
+ */
+function validateProfile(data) {
+  const isObj = (o) => o !== null && typeof o === "object" && !Array.isArray(o);
+  if (!isObj(data)) throw new RangeError("a profile must be a JSON object");
+  if (data.format !== "klarfarbe-profile") throw new RangeError("not a klarfarbe profile");
+  if (data.version !== undefined && typeof data.version !== "string") throw new RangeError("version must be a string");
+  if (!("type" in data) || !("severity" in data)) throw new RangeError("missing field type or severity");
+  if (!PROFILE_TYPES.includes(data.type)) throw new RangeError(`type must be one of ${PROFILE_TYPES}`);
+  const mode = data.mode ?? "standard";
+  if (!PROFILE_MODES.includes(mode)) throw new RangeError(`mode must be one of ${PROFILE_MODES}`);
+  const rawTargets = data.targets ?? {};
+  if (!isObj(rawTargets)) throw new RangeError("targets must be an object");
+  const targets = {};
+  for (const [k, t] of Object.entries(rawTargets)) {
+    if (!KEYS.includes(k)) continue;
+    if (!isObj(t)) throw new RangeError(`targets.${k} must be an object`);
+    targets[k] = {
+      hue_shift_deg: num(t.hue_shift_deg ?? 0, "hue_shift_deg", -180, 180),
+      min_lightness: opt(t.min_lightness, "min_lightness", 0, 1),
+      min_chroma: opt(t.min_chroma, "min_chroma", 0, 0.4),
+    };
+  }
+  return {
+    format: "klarfarbe-profile",
+    version: "0.1",
+    type: data.type,
+    severity: num(data.severity, "severity", 0, 1),
+    threshold: num(data.threshold ?? 0.5, "threshold", 0, 1),
+    strength: num(data.strength ?? 0.85, "strength", 0, 1),
+    protect_skin: bool(data.protect_skin ?? true, "protect_skin"),
+    max_chroma_gain: num(data.max_chroma_gain ?? 2.0, "max_chroma_gain", 1, 4),
+    clip_guard: bool(data.clip_guard ?? true, "clip_guard"),
+    mode,
     targets,
   };
 }
 
-// ---------- snapping ----------
+// ---------- snapping (mirrors python/klarfarbe/snap.py) ----------
+
+const CONFIDENCE_WINDOW = 0.3;
+const MAX_LIFT = 0.21;
+const LIFT_FADE = [0.12, 0.3];
+const PROXIMITY = [1.5, 3.0];
+const CLIP_FADE = [0.9, 0.995];
+const GAMUT_HEADROOM = 0.92;
 
 function targetsFor(profile) {
   return CATEGORIES.map((c, i) => {
     const t = profile.targets?.[c.key];
-    const hue = PROTO[i][2] + deg(t?.hue_shift_deg ?? 0);
+    const shift = deg(t?.hue_shift_deg ?? 0);
     const lMin = t?.min_lightness ?? 0;
-    return [lMin, PROTO[i][1], hue];
+    const cT = t?.min_chroma ?? (c.snaps ? PROTO[i][1] : 0);
+    return [lMin, cT, PROTO[i][2] + shift, shift, c.snaps ? 1 : 0];
   });
 }
 
 /** Snap one sRGB colour (channels 0-1). Returns {rgb, confidence, category}. */
 function snapColor(r, g, b, profile, _targets = targetsFor(profile)) {
-  const lch = toLch(srgbToOklab(r, g, b));
-  const { index, probability, chromaticity } = classify(lch);
-  const confidence = probability * chromaticity;
-  let alpha =
-    profile.strength *
-    smoothstep(profile.threshold, Math.min(profile.threshold + 0.15, 1), confidence);
+  const lab = srgbToOklab(r, g, b);
+  const lch = toLch(lab);
+  const [L, C, h] = lch;
+  const { index, probabilities: p, chromaticity: chromaW } = classify(lch);
+
+  let near = 0;
+  for (let k = 0; k < p.length; k++)
+    near += p[k] * (1 - ramp(PROXIMITY[0], PROXIMITY[1], Math.abs(hueDiff(h, PROTO[k][2])) / SIGMA_H));
+  let clipW = 1;
+  if (profile.clip_guard ?? true) clipW = 1 - ramp(CLIP_FADE[0], CLIP_FADE[1], Math.max(...oklabToSrgb(...lab)));
+  const confidence = chromaW * near * clipW;
+
+  let alpha = profile.strength * ramp(profile.threshold, Math.min(profile.threshold + CONFIDENCE_WINDOW, 1), confidence);
   if (profile.protect_skin) alpha *= 1 - skinWeight(lch);
 
-  const [L, C, h] = lch;
-  const [lMin, tC, tH] = _targets[index];
-  const newH = h + alpha * hueDiff(h, tH);
-  const goalC = Math.min(Math.max(C, tC), C * profile.max_chroma_gain);
-  const newC = C + alpha * (goalC - C);
-  const newL = L + alpha * (Math.max(L, lMin) - L);
+  let dh = 0, goalC = 0, lift = 0;
+  for (let k = 0; k < p.length; k++) {
+    const [lMin, cT, tH, shift, pull] = _targets[k];
+    dh += p[k] * (pull * hueDiff(h, tH) + (1 - pull) * shift);
+    goalC += p[k] * Math.min(Math.max(C, cT), C * profile.max_chroma_gain);
+    lift += p[k] * Math.min(Math.max(lMin - L, 0), MAX_LIFT);
+  }
+  lift *= smoothstep(LIFT_FADE[0], LIFT_FADE[1], L);
+  const goalH = h + dh;
+  const newL = L + alpha * lift;
+  const newH = h + alpha * (goalH - h);
+  let newC = C;
+  if (alpha > 0) {
+    const cMax = maxChroma(newL, newH);
+    goalC = Math.max(Math.min(goalC, GAMUT_HEADROOM * cMax), C);
+    newC = Math.min(C + alpha * (goalC - C), cMax);
+  }
   return {
     rgb: oklabToSrgb(...fromLch(newL, newC, newH)),
     confidence,
-    category: CATEGORIES[index].key,
+    category: KEYS[index],
   };
 }
 
+function checkSize(size) {
+  if (!Number.isInteger(size) || size < 2 || size > 256) throw new RangeError("LUT size must be an integer in [2, 256]");
+}
+
 /** 3D LUT as Uint8Array RGBA, red fastest (WebGL texImage3D layout). */
-function buildLutRGBA(profile, size = 33) {
+function buildLutRGBA(profile, size = LUT_N) {
+  checkSize(size);
   const tg = targetsFor(profile);
   const out = new Uint8Array(size * size * size * 4);
   let o = 0;
@@ -338,10 +651,12 @@ function buildLutRGBA(profile, size = 33) {
   return out;
 }
 
-/** Adobe/Resolve .cube text, red fastest. */
-function buildCube(profile, size = 33, title = "Klarfarbe") {
+/** Adobe/Resolve .cube text, red fastest. Quotes and line breaks in the title are removed. */
+function buildCube(profile, size = LUT_N, title = "Klarfarbe") {
+  checkSize(size);
   const tg = targetsFor(profile);
-  const lines = [`TITLE "${title}"`, `LUT_3D_SIZE ${size}`, "DOMAIN_MIN 0.0 0.0 0.0", "DOMAIN_MAX 1.0 1.0 1.0"];
+  const safe = (String(title).replace(/"/g, "'").split(/\r\n|\r|\n/)[0] ?? "").replace(/[^\x00-\x7f]/g, "?");
+  const lines = [`TITLE "${safe}"`, `LUT_3D_SIZE ${size}`, "DOMAIN_MIN 0.0 0.0 0.0", "DOMAIN_MAX 1.0 1.0 1.0"];
   for (let bi = 0; bi < size; bi++)
     for (let gi = 0; gi < size; gi++)
       for (let ri = 0; ri < size; ri++) {
@@ -352,14 +667,32 @@ function buildCube(profile, size = 33, title = "Klarfarbe") {
 }
 
 // ---------- profile test (mirrors python/klarfarbe/profiletest.py) ----------
+// Sets software parameters only. Not a diagnostic or fitness test (see DISCLAIMER).
 
 const TEST_N_CAPS = 15;
 const TEST_L = 0.68;
-const TEST_CHROMA = { saturated: 0.1, pale: 0.05 };
+const TEST_CHROMA = { saturated: 0.06, pale: 0.035 };
 const TEST_START_HUE = 25;
-const TEST_FAIL_INDEX = 1.6;
-const TEST_AXIS = { protan: 9.0, deutan: -3.0 };
+const TEST_STRONG_INDEX = 2.4;
+const TEST_STRONG_COMBINED = 2.6;
+const TEST_FAIL_INDEX = 1.9;
+const TEST_AXIS = { protan: 8.0, deutan: -3.5 };
 const TEST_TYPE_MARGIN = 3.0;
+const TEST_MIN_SELECTIVITY = 1.8;
+
+/** Result texts (setting language, no diagnosis). Same as Python profiletest.NOTES. */
+const TEST_NOTES = {
+  none:
+    "Deine Reihenfolge war nahezu fehlerfrei. Klarfarbe startet mit einer leichten Einstellung. Du kannst sie in der Demo anpassen.",
+  moderate:
+    "Deine Reihenfolge passt zu einer mittleren Einstellung. Welche Achse besser hilft, ist hier nicht eindeutig: probiere Protan und Deutan in der Demo aus.",
+  unsystematic:
+    "Deine Reihenfolge wirkt unsystematisch. Bitte wiederhole den Test in Ruhe. Bis dahin startet Klarfarbe mit einer starken Einstellung; welche Achse hilft, wählst du selbst.",
+  off_axis:
+    "Deine Reihenfolge weicht ab, aber nicht so, wie es bei Rot-Grün-Schwäche typisch ist. Klarfarbe ist dafür womöglich nicht die passende Hilfe. Wenn du dein Farbsehen genau wissen willst, kann das eine Augenarztpraxis prüfen.",
+  type_unsure: "Welche Achse besser hilft, ist nicht eindeutig: probiere Protan und Deutan in der Demo aus.",
+  typed: "",
+};
 
 /** Caps for one round: array of 16 sRGB triples (0-1); index 0 is the reference. */
 function testCaps(round) {
@@ -371,7 +704,16 @@ function testCaps(round) {
   return out;
 }
 
-function testMoments(order, caps) {
+/** Throws RangeError unless order is a permutation of 1..15. */
+function validateOrder(order) {
+  if (!Array.isArray(order) || order.length !== TEST_N_CAPS) throw new RangeError("order must contain each cap 1..15 exactly once");
+  const seen = new Set(order);
+  for (let i = 1; i <= TEST_N_CAPS; i++)
+    if (!seen.has(i)) throw new RangeError("order must contain each cap 1..15 exactly once");
+  return order;
+}
+
+function testScatter(order, caps) {
   const seq = [0, ...order];
   const ab = seq.map((i) => srgbToOklab(...caps[i]).slice(1));
   let a = 0, b = 0, c = 0;
@@ -379,54 +721,105 @@ function testMoments(order, caps) {
     const du = ab[k][0] - ab[k - 1][0], dv = ab[k][1] - ab[k - 1][1];
     a += du * du; b += du * dv; c += dv * dv;
   }
-  const n = ab.length - 1;
+  return { a, b, c, n: ab.length - 1 };
+}
+
+function testMoments(order, caps) {
+  const { a, b, c, n } = testScatter(order, caps);
   const mid = (a + c) / 2, rad = Math.sqrt(((a - c) / 2) ** 2 + b * b);
   let angle = (0.5 * Math.atan2(2 * b, a - c) * 180) / Math.PI;
   angle = ((((angle + 90) % 180) + 180) % 180) - 90;
   return { angle, major: Math.sqrt((mid + rad) / n), minor: Math.sqrt(Math.max(mid - rad, 0) / n) };
 }
 
+const perfectOrder = () => Array.from({ length: TEST_N_CAPS }, (_, i) => i + 1);
+
 /** [confusion index (1 = perfect), axis angle in degrees] for an order of caps 1..15. */
 function confusionIndex(order, round) {
+  validateOrder(order);
   const caps = testCaps(round);
-  const perfect = testMoments(Array.from({ length: TEST_N_CAPS }, (_, i) => i + 1), caps).major;
+  const perfect = testMoments(perfectOrder(), caps).major;
   const m = testMoments(order, caps);
   return [m.major / perfect, m.angle];
 }
 
-/** Profile suggestion from both rounds; same rules as the Python evaluate(). */
+/** Selectivity S = major / minor radius; random orders give S near 1. */
+function testSelectivity(order, round) {
+  validateOrder(order);
+  const m = testMoments(order, testCaps(round));
+  return m.major / Math.max(m.minor, 1e-12);
+}
+
+/** Confusion axis from both rounds together (normalised scatter matrices summed). */
+function combinedAxis(orderSaturated, orderPale) {
+  let A = 0, B = 0, Cc = 0;
+  for (const [order, round] of [[orderSaturated, "saturated"], [orderPale, "pale"]]) {
+    validateOrder(order);
+    const caps = testCaps(round);
+    const p = testMoments(perfectOrder(), caps).major;
+    const s = testScatter(order, caps);
+    const k = s.n * p * p;
+    A += s.a / k; B += s.b / k; Cc += s.c / k;
+  }
+  const angle = 0.5 * (Math.atan2(2 * B, A - Cc) * 180) / Math.PI;
+  return ((((angle + 90) % 180) + 180) % 180) - 90;
+}
+
+/**
+ * Suggested starting setting from both rounds; same rules as Python evaluate().
+ * Returns {type, severity, angle, index_saturated, index_pale, selectivity, note_key, note}.
+ * Throws RangeError for an invalid order.
+ */
 function evaluateTest(orderSaturated, orderPale) {
   const [ciS, angS] = confusionIndex(orderSaturated, "saturated");
   const [ciP, angP] = confusionIndex(orderPale, "pale");
-  const base = { index_saturated: ciS, index_pale: ciP };
-  if (!(ciS > TEST_FAIL_INDEX)) {
-    if (ciP > TEST_FAIL_INDEX)
-      return { ...base, type: "unknown", severity: 0.6, angle: angP,
-        note: "Mittlere Rot-Grün-Schwäche erkannt. Der Typ lässt sich bei dieser Stärke nicht sicher bestimmen: bitte Protan oder Deutan selbst wählen." };
-    return { ...base, type: "unknown", severity: 0.3, angle: null,
-      note: "Keine deutliche Verwechslung. Entweder keine oder eine leichte Farbsehschwäche." };
+  const sel = testSelectivity(orderSaturated, "saturated");
+  const base = { index_saturated: ciS, index_pale: ciP, selectivity: sel };
+  const result = (type, severity, angle, key) => ({ ...base, type, severity, angle, note_key: key, note: TEST_NOTES[key] });
+  const comb = Math.sqrt(ciS * ciP);
+  if (!(ciS > TEST_STRONG_INDEX || comb > TEST_STRONG_COMBINED)) {
+    if (comb > TEST_FAIL_INDEX) return result("unknown", 0.6, angP, "moderate");
+    return result("unknown", 0.3, null, "none");
   }
+  if (sel < TEST_MIN_SELECTIVITY) return result("unknown", 0.85, angS, "unsystematic");
+  const angle = combinedAxis(orderSaturated, orderPale);
   const dist = (x, y) => { const d = Math.abs(x - y) % 180; return Math.min(d, 180 - d); };
-  const dp = dist(angS, TEST_AXIS.protan), dd = dist(angS, TEST_AXIS.deutan);
-  if (Math.min(dp, dd) > 30)
-    return { ...base, type: "unknown", severity: 0.85, angle: angS,
-      note: "Verwechslung erkannt, aber nicht auf der Rot-Grün-Achse. Bitte augenärztlich abklären." };
-  if (Math.abs(dp - dd) < TEST_TYPE_MARGIN)
-    return { ...base, type: "unknown", severity: 0.85, angle: angS,
-      note: "Rot-Grün-Verwechslung erkannt, Typ unsicher. Bitte Protan oder Deutan selbst wählen." };
-  return { ...base, type: dp < dd ? "protan" : "deutan", severity: 0.85, angle: angS, note: "" };
+  const dp = dist(angle, TEST_AXIS.protan), dd = dist(angle, TEST_AXIS.deutan);
+  if (Math.min(dp, dd) > 30) return result("unknown", 0.85, angle, "off_axis");
+  if (Math.abs(dp - dd) < TEST_TYPE_MARGIN) return result("unknown", 0.85, angle, "type_unsure");
+  return result(dp < dd ? "protan" : "deutan", 0.85, angle, "typed");
 }
 
 
 (() => {
-  const LUT_N = 33;
+  // LUT size: use the core's constant if it exists, otherwise 64. A small LUT is built first for instant feedback.
+  const LUT_FINE = (typeof LUT_N === "number" && LUT_N >= 2 && LUT_N <= 128) ? LUT_N : 64;
+  const LUT_FAST = Math.min(33, LUT_FINE);
   const view = document.getElementById("view");
   const msg = document.getElementById("msg");
   const probe = document.getElementById("probe");
+  const splitR = document.getElementById("splitR"), splitBadge = document.getElementById("splitBadge");
   const src = document.createElement("canvas");          // source pixels (CPU copy)
   const sctx = src.getContext("2d", { willReadFrequently: true });
-  let video = null, split = 0.5, lut = null, dirty = true;
+  let video = null, split = 0.5, lut = null, lutN = 0, dirty = true;
   let state = { type: "deutan", severity: 0.6, threshold: 0.5, protect_skin: true };
+
+  // status line: icon + text, never colour alone; resets cleanly between error and info
+  const say = (text, kind = "info") => {
+    if (!text) { msg.textContent = ""; delete msg.dataset.kind; return; }
+    msg.textContent = (kind === "error" ? "⚠ Fehler: " : "ℹ ") + text; msg.dataset.kind = kind;
+  };
+
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem("klarfarbe." + k)); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem("klarfarbe." + k, JSON.stringify(v)); } catch {} },
+  };
+  const saved = store.get("state");
+  if (saved && typeof saved === "object") {
+    if (saved.type === "deutan" || saved.type === "protan") state.type = saved.type;
+    for (const k of ["severity", "threshold"]) if (Number.isFinite(saved[k])) state[k] = saved[k];
+    if (typeof saved.protect_skin === "boolean") state.protect_skin = saved.protect_skin;
+  }
 
   const profile = () => {
     const p = defaultProfile(state.type, state.severity);
@@ -436,6 +829,8 @@ function evaluateTest(orderSaturated, orderPale) {
   };
 
   // ---------- test scene ----------
+  // rows 1, 2 and 4: tiles; row 3: cables that run through the whole picture, so the same
+  // object is visible on both sides of the dividing line (left without, right with Klarfarbe)
   function drawTestScene() {
     const W = 960, H = 600;
     src.width = W; src.height = H;
@@ -445,26 +840,42 @@ function evaluateTest(orderSaturated, orderPale) {
       ["Erdbeere", [176, 52, 58]], ["Unreife Erdbeere", [196, 176, 110]], ["Tomate", [190, 70, 55]],
       ["Paprika grün", [72, 120, 50]], ["Aubergine", [55, 30, 60]], ["Blatt", [70, 120, 70]],
       ["Olive", [100, 120, 60]], ["Orange", [220, 140, 60]], ["Banane", [230, 205, 90]],
-      ["Ampel rot", [160, 80, 75]], ["Ampel grün", [90, 150, 120]], ["Ladeleuchte", [150, 160, 70]],
-      ["Ader braun", [110, 75, 50]], ["Ader schwarz", [35, 35, 35]], ["Ader grau", [128, 128, 128]],
-      ["Ader blau", [60, 100, 170]], ["Ader grün-gelb", [150, 170, 60]], ["Ziegel", [150, 60, 50]],
+      ["Leuchte rot", [160, 80, 75]], ["Leuchte grün", [90, 150, 120]], ["Ladeleuchte", [150, 160, 70]],
+      null, null, null, null, null, null,
       ["Haut hell", [225, 180, 150]], ["Haut mittel", [190, 140, 110]], ["Haut dunkel", [120, 85, 65]],
       ["Himmel", [120, 170, 220]], ["Lavendel", [150, 130, 190]], ["Rosa", [210, 150, 170]],
     ];
     const cols = 6, cw = W / cols, rh = H / 4;
-    g.textAlign = "center"; g.font = "15px -apple-system, Segoe UI, sans-serif";
-    items.forEach(([name, c], i) => {
+    g.textAlign = "center"; g.font = "600 16px -apple-system, Segoe UI, sans-serif";
+    items.forEach((it, i) => {
+      if (!it) return;
+      const [name, c] = it;
       const x = (i % cols) * cw, y = Math.floor(i / cols) * rh;
       g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
       g.beginPath(); g.roundRect(x + 12, y + 12, cw - 24, rh - 48, 12); g.fill();
       g.fillStyle = "#3a3936"; g.fillText(name, x + cw / 2, y + rh - 16);
+    });
+    const cables = [
+      ["Kabel rot", [150, 60, 50]], ["Kabel grün", [70, 120, 70]],
+      ["Ader braun", [110, 75, 50]], ["Ader grün-gelb", [150, 170, 60]],
+    ];
+    const y0 = 2 * rh + 10, ch = 26, gap = 8;
+    g.font = "600 15px -apple-system, Segoe UI, sans-serif"; g.lineJoin = "round"; g.lineWidth = 3;
+    cables.forEach(([name, c], k) => {
+      const y = y0 + k * (ch + gap);
+      g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+      g.beginPath(); g.roundRect(12, y, W - 24, ch, ch / 2); g.fill();
+      g.strokeStyle = "rgba(0,0,0,.75)"; g.fillStyle = "#fff";
+      for (const [tx, al] of [[30, "left"], [W - 30, "right"]]) {
+        g.textAlign = al; g.strokeText(name, tx, y + ch / 2 + 5); g.fillText(name, tx, y + ch / 2 + 5);
+      }
     });
     dirty = true;
   }
 
   // ---------- WebGL2 ----------
   const gl = view.getContext("webgl2", { preserveDrawingBuffer: true });
-  let prog, imgTex, lutTex, uSplit, uMode, uCrop;
+  let prog, imgTex, lutTex, uSplit, uMode, uCrop, uSize, uLutN, uEye;
   if (gl) {
     const vs = `#version 300 es
       in vec2 p; out vec2 uv;
@@ -472,19 +883,27 @@ function evaluateTest(orderSaturated, orderPale) {
     const fs = `#version 300 es
       precision highp float; precision highp sampler3D;
       uniform sampler2D img; uniform sampler3D lut; uniform float split; uniform vec2 size; uniform int mode; uniform vec2 crop;
+      uniform float lutN; uniform float eyeShift;
       in vec2 uv; out vec4 o;
       void main() {
         vec2 t = vec2(uv.x, 1.0 - uv.y);
         vec2 s = t;
-        if (mode == 2) s.x = fract(t.x * 2.0);          // side by side for a phone headset
+        if (mode == 2) {                                 // side by side for a phone headset, centres at eye distance
+          s.x = t.x < 0.5 ? (t.x - eyeShift) * 2.0 : (t.x - 0.5 + eyeShift) * 2.0;
+          if (s.x < 0.0 || s.x > 1.0 || abs(t.x - 0.5) * size.x < 2.0) { o = vec4(0.0, 0.0, 0.0, 1.0); return; }
+        }
         if (mode >= 1) s = 0.5 + (s - 0.5) * crop;      // fill the screen without stretching
         vec3 c = texture(img, s).rgb;
-        float n = ${LUT_N}.0;
-        vec3 k = texture(lut, c * (n - 1.0) / n + 0.5 / n).rgb;
+        vec3 k = texture(lut, c * (lutN - 1.0) / lutN + 0.5 / lutN).rgb;
         vec3 col = k;
         if (mode == 0) {
           col = t.x < split ? c : k;
-          if (abs(t.x - split) * size.x < 1.5) col = vec3(1.0);
+          float lw = max(1.5, size.x / 640.0);
+          float dx = abs(t.x - split) * size.x;
+          if (dx < lw) col = vec3(1.0); else if (dx < 2.5 * lw) col = vec3(0.1);
+          float hy = abs(t.y - 0.5) * size.y, hw = 9.0 * lw, hh = 18.0 * lw;       // grip
+          if (dx < hw && hy < hh) col = (dx < hw - lw && hy < hh - lw) ? vec3(1.0) : vec3(0.1);
+          if (dx < hw - lw && hy < hh - lw && abs(dx - 3.0 * lw) < 0.6 * lw && hy < 8.0 * lw) col = vec3(0.35);
         }
         o = vec4(col, 1.0);
       }`;
@@ -511,22 +930,61 @@ function evaluateTest(orderSaturated, orderPale) {
     uSplit = gl.getUniformLocation(prog, "split");
     uMode = gl.getUniformLocation(prog, "mode");
     uCrop = gl.getUniformLocation(prog, "crop");
+    uSize = gl.getUniformLocation(prog, "size");
+    uLutN = gl.getUniformLocation(prog, "lutN");
+    uEye = gl.getUniformLocation(prog, "eyeShift");
   } else {
-    msg.textContent = "WebGL2 nicht verfügbar – langsamere Darstellung ohne Grafikkarte.";
+    say("WebGL2 nicht verfügbar – langsamere Darstellung ohne Grafikkarte.");
   }
 
-  function uploadLut() {
-    lut = buildLutRGBA(profile(), LUT_N);
-    if (!gl) { dirty = true; return; }
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_3D, lutTex);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, LUT_N, LUT_N, LUT_N, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut);
-    for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, p, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  // ---------- colour table (LUT) ----------
+  function setLut(data, n) {
+    lut = data; lutN = n;
+    if (gl) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_3D, lutTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, n, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, p, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.uniform1f(uLutN, n);
+    }
     dirty = true;
   }
+  // The fine LUT (64³ = 262 144 colours) is built in slices between frames so the page never freezes.
+  // Same layout as buildLutRGBA (red fastest); if the core's internals are not reachable it falls back to one call.
+  let lutGen = 0;
+  function buildFineLut(p, gen) {
+    const n = LUT_FINE;
+    if (typeof targetsFor !== "function") {
+      setTimeout(() => { if (gen === lutGen) setLut(buildLutRGBA(p, n), n); }, 250);
+      return;
+    }
+    const tg = targetsFor(p), out = new Uint8Array(n * n * n * 4);
+    let bi = 0, o = 0;
+    const step = () => {
+      if (gen !== lutGen) return;                        // settings changed meanwhile
+      const t0 = performance.now();
+      while (bi < n && performance.now() - t0 < 10) {
+        for (let gi = 0; gi < n; gi++)
+          for (let ri = 0; ri < n; ri++) {
+            const { rgb } = snapColor(ri / (n - 1), gi / (n - 1), bi / (n - 1), p, tg);
+            out[o++] = Math.round(rgb[0] * 255); out[o++] = Math.round(rgb[1] * 255); out[o++] = Math.round(rgb[2] * 255); out[o++] = 255;
+          }
+        bi++;
+      }
+      if (bi < n) setTimeout(step, 0); else setLut(out, n);
+    };
+    setTimeout(step, 30);
+  }
+  function uploadLut() {
+    const gen = ++lutGen, p = profile();
+    setLut(buildLutRGBA(p, LUT_FAST), LUT_FAST);
+    if (LUT_FINE > LUT_FAST) buildFineLut(p, gen);
+    store.set("state", state);
+  }
+  window.__klarfarbeLut = () => ({ n: lutN, data: lut });   // for automated tests
 
   // the live camera goes straight to the GPU; the CPU copy in `src` is only refreshed when needed
   const liveVideo = () => video && video.readyState >= 2 && video.videoWidth > 0;
@@ -545,30 +1003,47 @@ function evaluateTest(orderSaturated, orderPale) {
     const w = liveVideo() ? video.videoWidth : src.width, h = liveVideo() ? video.videoHeight : src.height;
     if (view.width !== w || view.height !== h) { view.width = w; view.height = h; }
   }
+  // upload the current picture (camera frame or still image) to texture unit 0
+  function uploadSource() {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, imgTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, liveVideo() ? video : src);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+  // crop the source so it fills a viewport of this aspect ratio without stretching; zoom > 1 magnifies
+  function setCrop(viewAspect, useZoom) {
+    const srcW = liveVideo() ? video.videoWidth : src.width, srcH = liveVideo() ? video.videoHeight : src.height;
+    const srcAspect = srcW / srcH, z = useZoom ? zoom : 1;
+    gl.uniform2f(uCrop, Math.min(1, viewAspect / srcAspect) / z, Math.min(1, srcAspect / viewAspect) / z);
+  }
+  // eye distance -> horizontal shift of each half (in units of the full width).
+  // CSS px per mm is only approximate: ~6.3 on phones/tablets (160 dpi class), 96 dpi on desktop screens.
+  let ipdMm = 63;
+  const pxPerMm = () => (matchMedia("(pointer: coarse)").matches ? 6.3 : 96 / 25.4);
+  const eyeShift = () => Math.max(-0.25, Math.min(0.25, 0.25 - (ipdMm * pxPerMm()) / innerWidth / 2));
   function render() {
+    if (xrSession) { requestAnimationFrame(render); return; }   // the headset draws in xrFrame()
     if (liveVideo()) dirty = true;
     if (dirty && (src.width || liveVideo())) {
       sizeView();
       if (gl) {
-        const srcW = liveVideo() ? video.videoWidth : src.width, srcH = liveVideo() ? video.videoHeight : src.height;
-        const viewAspect = (glassMode === 2 ? view.width / 2 : view.width) / view.height, srcAspect = srcW / srcH;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.uniform1i(uMode, glassMode);
-        gl.uniform2f(uCrop, Math.min(1, viewAspect / srcAspect), Math.min(1, srcAspect / viewAspect));
+        gl.uniform1f(uEye, eyeShift());
+        setCrop((glassMode === 2 ? view.width / 2 : view.width) / view.height, glassMode > 0);
         gl.viewport(0, 0, view.width, view.height);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, imgTex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, liveVideo() ? video : src);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        uploadSource();
         gl.uniform1f(uSplit, split);
-        gl.uniform2f(gl.getUniformLocation(prog, "size"), view.width, view.height);
+        gl.uniform2f(uSize, view.width, view.height);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       } else {
         grabVideoFrame();
         renderCpu();
       }
+      splitBadge.style.left = (split * 100) + "%";
       dirty = false;
     }
     requestAnimationFrame(render);
@@ -576,7 +1051,7 @@ function evaluateTest(orderSaturated, orderPale) {
 
   function renderCpu() {
     const ctx = view.getContext("2d");
-    const im = sctx.getImageData(0, 0, src.width, src.height), d = im.data, n = LUT_N;
+    const im = sctx.getImageData(0, 0, src.width, src.height), d = im.data, n = lutN;
     const cut = Math.round(split * src.width);
     for (let y = 0; y < src.height; y++)
       for (let x = cut; x < src.width; x++) {
@@ -586,15 +1061,18 @@ function evaluateTest(orderSaturated, orderPale) {
         d[i] = lut[j]; d[i + 1] = lut[j + 1]; d[i + 2] = lut[j + 2];
       }
     ctx.putImageData(im, 0, 0);
-    ctx.fillStyle = "#fff"; ctx.fillRect(cut - 1, 0, 2, src.height);
+    const my = src.height / 2;
+    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(cut - 4, 0, 8, src.height); ctx.fillRect(cut - 14, my - 28, 28, 56);
+    ctx.fillStyle = "#fff"; ctx.fillRect(cut - 1.5, 0, 3, src.height); ctx.fillRect(cut - 12, my - 26, 24, 52);
   }
 
   // ---------- inputs ----------
   const pressed = (on, off) => { on.setAttribute("aria-pressed", "true"); off.forEach((b) => b.setAttribute("aria-pressed", "false")); };
   const bSrcTest = document.getElementById("srcTest"), bSrcCam = document.getElementById("srcCam");
-  function stopVideo() { if (video) { video.srcObject?.getTracks().forEach((t) => t.stop()); video = null; } }
+  function stopVideo() { if (video) { video.srcObject?.getTracks().forEach((t) => t.stop()); video.remove(); video = null; } }
 
-  bSrcTest.onclick = () => { stopVideo(); msg.textContent = ""; pressed(bSrcTest, [bSrcCam]); drawTestScene(); };
+  bSrcTest.onclick = () => { stopVideo(); say(""); pressed(bSrcTest, [bSrcCam]); drawTestScene(); };
+  document.getElementById("fileBtn").onclick = () => document.getElementById("file").click();
   document.getElementById("file").onchange = (e) => {
     const f = e.target.files[0]; if (!f) return;
     stopVideo(); pressed(document.createElement("i"), [bSrcTest, bSrcCam]);
@@ -602,9 +1080,9 @@ function evaluateTest(orderSaturated, orderPale) {
     img.onload = () => {
       const s = Math.min(1, 1600 / Math.max(img.width, img.height));
       src.width = Math.round(img.width * s); src.height = Math.round(img.height * s);
-      sctx.drawImage(img, 0, 0, src.width, src.height); URL.revokeObjectURL(url); dirty = true; msg.textContent = "";
+      sctx.drawImage(img, 0, 0, src.width, src.height); URL.revokeObjectURL(url); dirty = true; say("");
     };
-    img.onerror = () => { msg.textContent = "Dieses Bild konnte nicht gelesen werden."; };
+    img.onerror = () => { URL.revokeObjectURL(url); say("Dieses Bild konnte nicht gelesen werden.", "error"); };
     img.src = url;
   };
   const camSel = document.getElementById("camSel");
@@ -616,8 +1094,12 @@ function evaluateTest(orderSaturated, orderPale) {
       const stream = await navigator.mediaDevices.getUserMedia({ video: video_, audio: false });
       stopVideo();
       video = document.createElement("video"); video.playsInline = true; video.muted = true;
+      video.setAttribute("aria-hidden", "true");
+      // kept in the DOM (invisible): a playing video helps some browsers without Wake Lock to keep the screen on
+      video.style.cssText = "position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0";
+      document.body.append(video);
       video.srcObject = stream; await video.play();
-      pressed(bSrcCam, [bSrcTest]); msg.textContent = "";
+      pressed(bSrcCam, [bSrcTest]); say("");
       const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
       const current = stream.getVideoTracks()[0]?.getSettings().deviceId;
       camSel.replaceChildren(...cams.map((d, i) => {
@@ -625,9 +1107,11 @@ function evaluateTest(orderSaturated, orderPale) {
         o.selected = d.deviceId === current; return o;
       }));
       camSel.hidden = cams.length < 2;
+      const r = view.getBoundingClientRect();
+      if (!glassMode && (r.bottom < 0 || r.top > innerHeight)) view.scrollIntoView({ behavior: "smooth", block: "start" });
       return true;
     } catch (err) {
-      msg.textContent = "Kamera hier nicht erlaubt. Lade ein Foto oder öffne die Demo lokal bzw. über GitHub Pages (siehe README).";
+      say("Kamera hier nicht erlaubt. Lade ein Foto oder öffne die Demo lokal bzw. über GitHub Pages (siehe README).", "error");
       return false;
     }
   }
@@ -635,108 +1119,269 @@ function evaluateTest(orderSaturated, orderPale) {
   camSel.onchange = () => startCamera(camSel.value);
 
   // ---------- wearable mode: 1 = full screen, 2 = side by side (phone headset) ----------
-  let glassMode = 0;
+  let glassMode = 0, wakeLock = null, lastTap = 0, pressTimer = 0, hintTimer = 0;
+  const rotateHint = document.getElementById("rotateHint"), glassHint = document.getElementById("glassHint");
+  const SAFETY = "Hilfe zum Unterscheiden von Farben. Keine Sicherheitsfunktion: nicht für Ampeln, Stromkabel oder " +
+    "Lebensmittelsicherheit als alleinige Entscheidung. Kein Medizinprodukt, kein Diagnose- oder Eignungstest.";
+  const EXIT_HINT = "Beenden: zweimal tippen, lange drücken oder Zurück-Taste";
+  function showGlassHint(text, ms) {
+    for (const d of glassHint.children) d.textContent = text;
+    glassHint.hidden = false; clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => (glassHint.hidden = true), ms);
+  }
+  const checkOrientation = () => { rotateHint.hidden = !(glassMode === 2 && innerHeight > innerWidth); dirty = true; };
+  async function lockWake() {
+    if (!("wakeLock" in navigator)) return false;
+    try { wakeLock = await navigator.wakeLock.request("screen"); return true; } catch { return false; }
+  }
+  document.addEventListener("visibilitychange", () => { if (glassMode && document.visibilityState === "visible") lockWake(); });
   async function enterGlasses(mode) {
     if (!video && !(await startCamera())) return;
-    glassMode = mode; document.body.classList.add("glasses"); dirty = true;
-    try { await document.documentElement.requestFullscreen(); } catch {}
+    glassMode = mode; dirty = true;
+    document.body.classList.add("glasses"); document.body.classList.toggle("sbs", mode === 2);
+    try { history.pushState({ klarfarbeGlasses: true }, ""); } catch {}   // phone back button ends the mode
+    try { await document.documentElement.requestFullscreen({ navigationUI: "hide" }); } catch {}
     try { await screen.orientation.lock("landscape"); } catch {}
+    const awake = await lockWake();
+    checkOrientation();
+    let first = false;
+    try { first = !sessionStorage.getItem("klarfarbe.safetySeen"); sessionStorage.setItem("klarfarbe.safetySeen", "1"); } catch { first = true; }
+    const extra = awake ? "" : " · Bildschirm-Sperre bitte selbst ausschalten.";
+    if (first) showGlassHint(SAFETY + " — " + EXIT_HINT + extra, 7000);
+    else showGlassHint(EXIT_HINT + extra, 3500);
   }
-  function exitGlasses() {
-    glassMode = 0; document.body.classList.remove("glasses"); dirty = true;
+  function exitGlasses(fromHistory = false) {
+    if (!glassMode) return;
+    glassMode = 0; dirty = true;
+    document.body.classList.remove("glasses", "sbs");
+    rotateHint.hidden = true; glassHint.hidden = true; clearTimeout(pressTimer);
+    wakeLock?.release().catch(() => {}); wakeLock = null;
+    try { screen.orientation.unlock(); } catch {}
     try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
+    if (!fromHistory && history.state && history.state.klarfarbeGlasses) history.back();
   }
+  // single tap = cardboard trigger, must not end the mode; double tap or long press ends it
+  function onGlassDown(e) {
+    const now = performance.now();
+    if (now - lastTap < 400) { lastTap = 0; exitGlasses(); return; }
+    lastTap = now;
+    clearTimeout(pressTimer);
+    pressTimer = setTimeout(() => exitGlasses(), 800);
+    showGlassHint(EXIT_HINT, 2500);
+  }
+  addEventListener("popstate", () => { if (glassMode) exitGlasses(true); });
+  addEventListener("resize", checkOrientation);
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && glassMode) exitGlasses(); });
   document.getElementById("glassFull").onclick = () => enterGlasses(1);
   document.getElementById("glassSbs").onclick = () => enterGlasses(2);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && glassMode) exitGlasses(); });
 
-  const bindRange = (id, key, fmt) => {
-    const el = document.getElementById(id), out = document.getElementById(id + "V");
+  // zoom for all wearable modes (magnifies the centre of the camera picture)
+  let zoom = 1;
+  const zoomEl = document.getElementById("zoom"), zoomV = document.getElementById("zoomV");
+  const showZoom = () => (zoomV.textContent = zoom.toFixed(2).replace(".", ",") + "×");
+  zoomEl.oninput = () => { zoom = parseFloat(zoomEl.value); showZoom(); dirty = true; };
+  showZoom();
+  const ipdEl = document.getElementById("ipd"), ipdV = document.getElementById("ipdV");
+  const savedIpd = store.get("ipd");
+  if (Number.isFinite(savedIpd) && savedIpd >= 55 && savedIpd <= 75) { ipdMm = savedIpd; ipdEl.value = savedIpd; }
+  const showIpd = () => (ipdV.textContent = ipdMm + " mm");
+  ipdEl.oninput = () => { ipdMm = parseFloat(ipdEl.value); showIpd(); store.set("ipd", ipdMm); dirty = true; };
+  showIpd();
+
+  // ---------- WebXR: full field of view on Meta Quest (and other headsets) ----------
+  let xrSession = null, xrRef = null, xrTimer = 0;
+  const bXR = document.getElementById("glassXR"), xrDlg = document.getElementById("xrDlg");
+  (async () => {
+    try {
+      if (gl && navigator.xr && (await navigator.xr.isSessionSupported("immersive-vr"))) {
+        bXR.disabled = false; bXR.textContent = "Quest-Rundumsicht";
+      }
+    } catch {}
+  })();
+  async function enterXR() {
+    if (!video && !(await startCamera())) return;
+    try {
+      const session = await navigator.xr.requestSession("immersive-vr");
+      await gl.makeXRCompatible();
+      session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+      try { xrRef = await session.requestReferenceSpace("local"); }
+      catch { xrRef = await session.requestReferenceSpace("viewer"); }
+      session.addEventListener("end", () => {
+        clearTimeout(xrTimer);
+        xrSession = null; gl.bindFramebuffer(gl.FRAMEBUFFER, null); dirty = true; say("");
+      });
+      xrSession = session;
+      xrTimer = setTimeout(() => session.end().catch(() => {}), 15 * 60 * 1000);   // pause after 15 minutes
+      session.requestAnimationFrame(xrFrame);
+      say("Rundumsicht läuft (Vorschau-Prototyp). Beenden mit der Menütaste der Quest.");
+    } catch (err) {
+      xrSession = null;
+      say("Rundumsicht konnte nicht starten: " + (err && err.message ? err.message : err), "error");
+    }
+  }
+  function xrFrame(time, frame) {
+    const session = frame.session;
+    session.requestAnimationFrame(xrFrame);
+    const pose = frame.getViewerPose(xrRef);
+    if (!pose || !liveVideo()) return;
+    const layer = session.renderState.baseLayer;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    uploadSource();
+    gl.uniform1i(uMode, 1);
+    for (const v of pose.views) {
+      const vp = layer.getViewport(v);
+      gl.viewport(vp.x, vp.y, vp.width, vp.height);
+      setCrop(vp.width / vp.height, true);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+  }
+  bXR.onclick = () => { if (typeof xrDlg.showModal === "function") xrDlg.showModal(); else enterXR(); };
+  document.getElementById("xrGo").onclick = () => { xrDlg.close(); enterXR(); };
+  document.getElementById("xrCancel").onclick = () => xrDlg.close();
+
+  // ---------- profile controls ----------
+  const sevEl = document.getElementById("sev"), thrEl = document.getElementById("thr");
+  sevEl.value = state.severity; thrEl.value = state.threshold;
+  const bindRange = (el, key, fmt) => {
+    const out = document.getElementById(el.id + "V");
     const show = () => (out.textContent = fmt(state[key]));
     el.oninput = () => { state[key] = parseFloat(el.value); show(); scheduleLut(); };
     show();
   };
-  bindRange("sev", "severity", (v) => Math.round(v * 100) + " %");
-  bindRange("thr", "threshold", (v) => Math.round(v * 100) + " %");
-  document.getElementById("skin").onchange = (e) => { state.protect_skin = e.target.checked; scheduleLut(); };
+  bindRange(sevEl, "severity", (v) => Math.round(v * 100) + " %");
+  bindRange(thrEl, "threshold", (v) => Math.round(v * 100) + " %");
+  const bDaily = document.getElementById("mDaily"), bWork = document.getElementById("mWork");
+  const showMode = () => {
+    pressed(state.protect_skin ? bDaily : bWork, [state.protect_skin ? bWork : bDaily]);
+    document.getElementById("workWarn").hidden = state.protect_skin;
+    document.getElementById("modeHint").hidden = !state.protect_skin;
+  };
+  bDaily.onclick = () => { state.protect_skin = true; showMode(); scheduleLut(); };
+  bWork.onclick = () => { state.protect_skin = false; showMode(); scheduleLut(); };
+  showMode();
   const bD = document.getElementById("tDeutan"), bP = document.getElementById("tProtan");
   bD.onclick = () => { state.type = "deutan"; pressed(bD, [bP]); scheduleLut(); };
   bP.onclick = () => { state.type = "protan"; pressed(bP, [bD]); scheduleLut(); };
+  if (state.type === "protan") pressed(bP, [bD]);
 
   let lutTimer = 0;
   function scheduleLut() { clearTimeout(lutTimer); lutTimer = setTimeout(uploadLut, 60); }
 
-  // split dragging + colour probe
+  // ---------- dividing line + colour probe ----------
   const pos = (e) => { const r = view.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+  const setSplit = (x) => { split = Math.min(1, Math.max(0, x)); splitR.value = split; dirty = true; };
+  splitR.oninput = () => { split = parseFloat(splitR.value); dirty = true; };
   let dragging = false;
-  view.addEventListener("pointerdown", (e) => { if (glassMode) { exitGlasses(); return; } dragging = true; view.setPointerCapture(e.pointerId); split = Math.min(1, Math.max(0, pos(e)[0])); dirty = true; });
-  view.addEventListener("pointerup", () => (dragging = false));
+  view.addEventListener("pointerdown", (e) => {
+    if (glassMode) { onGlassDown(e); return; }
+    const [x] = pos(e);
+    // mouse: click anywhere moves the line; touch/pen: only near the line (else tap = colour probe, and scrolling still works)
+    const nearLine = Math.abs(x - split) * view.getBoundingClientRect().width < 28;
+    if (e.pointerType === "mouse" || nearLine) { dragging = true; view.setPointerCapture(e.pointerId); setSplit(x); }
+    if (e.pointerType !== "mouse" && !nearLine) probeAt(e);
+  });
+  const endDrag = () => { dragging = false; clearTimeout(pressTimer); };
+  view.addEventListener("pointerup", endDrag);
+  view.addEventListener("pointercancel", endDrag);
   view.addEventListener("pointermove", (e) => {
-    const [x, y] = pos(e);
     if (glassMode) return;
-    if (dragging) { split = Math.min(1, Math.max(0, x)); dirty = true; }
+    if (dragging) setSplit(pos(e)[0]);
+    if (e.pointerType === "mouse" || !dragging) probeAt(e);
+  });
+  function probeAt(e) {
+    const [x, y] = pos(e);
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
     grabVideoFrame();
     if (!src.width) return;
     const px = sctx.getImageData(Math.floor(x * src.width), Math.floor(y * src.height), 1, 1).data;
     const res = snapColor(px[0] / 255, px[1] / 255, px[2] / 255, profile());
-    const label = CATEGORIES.find((c) => c.key === res.category).label;
+    const label = (CATEGORIES.find((c) => c.key === res.category) || { label: res.category }).label;
     const after = res.rgb.map((v) => Math.round(v * 255));
     const sure = Math.round(res.confidence * 100);
     const text = res.confidence < 0.05 ? "neutral (Grau/Schwarz/Weiß), bleibt unverändert"
-      : `${label}, Sicherheit ${sure} %` + (sure < state.threshold * 100 ? " – unsicher, bleibt unverändert" : "");
+      : `${label}, eindeutig zu ${sure} %` + (sure < state.threshold * 100 ? " – unklar, bleibt unverändert" : "");
     probe.innerHTML = `<span class="chip" style="background:rgb(${px[0]},${px[1]},${px[2]})"></span>→` +
       `<span class="chip" style="background:rgb(${after.join(",")})"></span><span></span>`;
     probe.lastChild.textContent = text;
-  });
+  }
+  if (matchMedia("(pointer: coarse)").matches) probe.textContent = "Tippe auf eine Farbe, um zu sehen, wie Klarfarbe sie einordnet.";
+
+  // hold to compare: show the whole picture without Klarfarbe
+  const holdBtn = document.getElementById("holdOrig");
+  let splitBefore = split, holding = false;
+  const showOrig = (on) => {
+    if (on === holding) return;
+    holding = on;
+    if (on) { splitBefore = split; split = 1; } else split = splitBefore;
+    holdBtn.classList.toggle("held", on); dirty = true;
+  };
+  holdBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); showOrig(true); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => holdBtn.addEventListener(ev, () => showOrig(false)));
+  holdBtn.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); showOrig(true); } });
+  holdBtn.addEventListener("keyup", () => showOrig(false));
+  holdBtn.addEventListener("blur", () => showOrig(false));
+  holdBtn.addEventListener("contextmenu", (e) => e.preventDefault());
 
   // export
   const out = document.getElementById("out");
   async function share(text) {
     out.hidden = false; out.value = text;
-    try { await navigator.clipboard.writeText(text); msg.style.color = "inherit"; msg.textContent = "In die Zwischenablage kopiert."; }
-    catch { out.select(); msg.textContent = "Kopieren nicht erlaubt – Text unten markieren und kopieren."; }
+    try { await navigator.clipboard.writeText(text); say("In die Zwischenablage kopiert."); }
+    catch { out.select(); say("Kopieren nicht erlaubt – Text unten markieren und kopieren.", "error"); }
   }
   document.getElementById("copyProfile").onclick = () => share(JSON.stringify(profile(), null, 2));
+  // .cube stays at 33³: the common size for video tools, and 64³ would be ~7 MB of text
   document.getElementById("copyCube").onclick = () => share(buildCube(profile(), 33));
 
   // ---------- views (#demo / #profiltest) ----------
   const demoEl = document.getElementById("demo"), testEl = document.getElementById("profiltest");
   const navDemo = document.getElementById("navDemo"), navTest = document.getElementById("navTest");
+  let routed = false;
   function route() {
     const test = location.hash === "#profiltest";
+    if (glassMode && test) exitGlasses(true);
     demoEl.hidden = test; testEl.hidden = !test;
     navDemo.toggleAttribute("aria-current", !test); navTest.toggleAttribute("aria-current", test);
     if (!test) navDemo.setAttribute("aria-current", "page"); else navTest.setAttribute("aria-current", "page");
-    if (test) stopVideo();
+    document.title = test ? "Klarfarbe – Profiltest" : "Klarfarbe – Demo";
+    if (test) { stopVideo(); pressed(bSrcTest, [bSrcCam]); if (!src.width) drawTestScene(); }
+    if (test && routed) document.getElementById("testHead").focus({ preventScroll: true });
+    routed = true;
   }
   window.addEventListener("hashchange", route);
 
   // ---------- profile test ----------
   const rounds = ["saturated", "pale"];
-  let roundIdx = 0, order = [], orders = [], shuffled = [], testResult = null, chosenType = "deutan";
+  let roundIdx = 0, order = [], orders = [], shuffled = [[], []], testResult = null, chosenType = "deutan";
   const rowDone = document.getElementById("rowDone"), rowLeft = document.getElementById("rowLeft");
+  const progress = document.getElementById("progress");
   const css = (c) => `rgb(${c.map((v) => Math.round(v * 255)).join(",")})`;
   const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
   function startRound() {
     order = [];
-    shuffled = shuffle(Array.from({ length: TEST_N_CAPS }, (_, i) => i + 1));
-    document.getElementById("roundLabel").textContent =
-      roundIdx === 0 ? "Runde 1 von 2 · kräftige Farben" : "Runde 2 von 2 · blasse Farben";
+    shuffled[roundIdx] = shuffle(Array.from({ length: TEST_N_CAPS }, (_, i) => i + 1));
     drawRound();
   }
   function drawRound() {
+    document.getElementById("roundLabel").textContent =
+      roundIdx === 0 ? "Runde 1 von 2 · kräftige Farben" : "Runde 2 von 2 · blasse Farben";
+    progress.textContent = `${order.length} von ${TEST_N_CAPS} Farben gewählt`;
     const caps = testCaps(rounds[roundIdx]);
     rowDone.replaceChildren();
     const ref = document.createElement("span"); ref.className = "cap ref"; ref.style.background = css(caps[0]);
     ref.title = "Startfarbe"; rowDone.append(ref);
-    for (const i of order) { const s = document.createElement("span"); s.className = "cap small"; s.style.background = css(caps[i]); rowDone.append(s); }
+    order.forEach((i, k) => {
+      const s = document.createElement("span"); s.className = k === order.length - 1 ? "cap small last" : "cap small";
+      s.style.background = css(caps[i]); rowDone.append(s);
+    });
     rowLeft.replaceChildren();
-    for (const i of shuffled) {
-      if (order.includes(i)) continue;
-      const b = document.createElement("button"); b.className = "cap"; b.style.background = css(caps[i]);
-      b.setAttribute("aria-label", "Farbe wählen"); b.onclick = () => pick(i); rowLeft.append(b);
-    }
+    const rest = shuffled[roundIdx].filter((i) => !order.includes(i));
+    rest.forEach((i, k) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "cap"; b.style.background = css(caps[i]);
+      b.setAttribute("aria-label", `Farbe ${k + 1} von ${rest.length} wählen`); b.onclick = () => pick(i); rowLeft.append(b);
+    });
   }
   function pick(i) {
     order.push(i);
@@ -745,29 +1390,36 @@ function evaluateTest(orderSaturated, orderPale) {
     if (roundIdx === 0) { roundIdx = 1; startRound(); return; }
     showResult();
   }
+  const bCD = document.getElementById("chooseDeutan"), bCP = document.getElementById("chooseProtan");
+  const syncChoice = () => pressed(chosenType === "protan" ? bCP : bCD, [chosenType === "protan" ? bCD : bCP]);
   function showResult() {
     testResult = evaluateTest(orders[0], orders[1]);
     document.getElementById("testRun").hidden = true;
     document.getElementById("testResult").hidden = false;
     const r = testResult;
-    const sev = r.severity >= 0.85 ? "deutlich" : r.severity >= 0.6 ? "mittel" : "keine oder leicht";
-    const typ = { protan: "Protan (Rot-Schwäche)", deutan: "Deutan (Grün-Schwäche)", unknown: "nicht sicher bestimmbar" }[r.type];
+    const known = r.type === "protan" || r.type === "deutan";
+    chosenType = known ? r.type : state.type;          // shown choice == applied choice (B4)
+    syncChoice();
+    const sev = r.severity >= 0.85 ? "stark" : r.severity >= 0.6 ? "mittel" : "keine oder leicht";
+    const names = { protan: "Protan (Rot-Achse)", deutan: "Deutan (Grün-Achse)" };
+    const typ = known ? names[r.type]
+      : r.severity >= 0.6 ? "bitte unten selbst wählen" : `bleibt bei deiner Wahl (${state.type === "protan" ? "Protan" : "Deutan"})`;
+    const de = (v) => v.toFixed(2).replace(".", ",");
     const out = document.getElementById("resultText");
     out.innerHTML = "<strong></strong><br><span></span><br><span class='hint'></span>";
-    out.children[0].textContent = `Ausprägung: ${sev} · Typ: ${typ}`;
+    out.children[0].textContent = `Vorschlag für deine Einstellung: Stärke ${sev} · Profil ${typ}`;
     out.children[2].textContent = r.note || "Das Profil ist ein Startwert. Feineinstellung jederzeit in der Demo.";
     out.children[4].textContent =
-      `Verwechslungsindex kräftig ${r.index_saturated.toFixed(2)}, blass ${r.index_pale.toFixed(2)} (1,00 = fehlerfrei, ab 1,60 auffällig)` +
-      (r.angle !== null ? ` · Achse ${r.angle.toFixed(0)}°` : "");
-    document.getElementById("typeChoice").hidden = r.type !== "unknown";
-    chosenType = r.type === "unknown" ? state.type : r.type;
+      `Reihenfolge-Wert kräftig ${de(r.index_saturated)}, blass ${de(r.index_pale)} (1,00 = alle Farben in Kreisfolge)` +
+      (r.angle !== null && r.angle !== undefined ? ` · Achse ${r.angle.toFixed(0)}°` : "");
+    document.getElementById("typeChoice").hidden = !(!known && r.severity >= 0.6);
+    document.querySelector("#testResult > h2").focus({ preventScroll: false });
   }
-  const bCD = document.getElementById("chooseDeutan"), bCP = document.getElementById("chooseProtan");
-  bCD.onclick = () => { chosenType = "deutan"; pressed(bCD, [bCP]); };
-  bCP.onclick = () => { chosenType = "protan"; pressed(bCP, [bCD]); };
+  bCD.onclick = () => { chosenType = "deutan"; syncChoice(); };
+  bCP.onclick = () => { chosenType = "protan"; syncChoice(); };
   document.getElementById("applyProfile").onclick = () => {
     state.type = chosenType; state.severity = testResult.severity;
-    document.getElementById("sev").value = state.severity; document.getElementById("sev").oninput();
+    sevEl.value = state.severity; sevEl.oninput();
     (state.type === "protan" ? bP : bD).onclick();
     location.hash = "#demo";
   };
@@ -777,7 +1429,11 @@ function evaluateTest(orderSaturated, orderPale) {
     document.getElementById("testResult").hidden = true;
     startRound();
   }
-  document.getElementById("undo").onclick = () => { order.pop(); drawRound(); };
+  document.getElementById("undo").onclick = () => {
+    if (!order.length && roundIdx === 1) { roundIdx = 0; order = orders[0].slice(0, -1); }   // back into round 1
+    else order.pop();
+    drawRound();
+  };
   document.getElementById("restart").onclick = restartTest;
   document.getElementById("restart2").onclick = restartTest;
 

@@ -118,8 +118,6 @@ def test_cube_file(tmp_path):
     lines = path.read_text().splitlines()
     assert "LUT_3D_SIZE 9" in lines
     assert len([l for l in lines if l[0].isdigit()]) == 9 ** 3
-
-
 def test_forward_compatibility():
     data = {
         "format": "klarfarbe-profile",
